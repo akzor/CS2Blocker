@@ -2,10 +2,12 @@ using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -13,26 +15,30 @@ using Avalonia.VisualTree;
 
 namespace CS2Blocker;
 
-internal sealed class MainWindow : Window
+internal sealed partial class MainWindow : Window
 {
-    private const string Columns = "36,1.6*,1.1*,38,65,1.2*";
+    private const string WideColumns = "48,1.36*,1.02*,46,112,1.05*";
+    private const string CompactColumns = "34,1.4*,1.16*,28,50,1.16*";
+    private string _columns = WideColumns;
     private static readonly System.Net.Http.HttpClient CatalogClient = new() { Timeout = TimeSpan.FromSeconds(15) };
     private readonly bool _isAdmin = Firewall.IsAdmin();
-    private readonly StackPanel _countries = Ui.Stack();
-    private readonly StackPanel _rows = Ui.Stack();
-    private readonly ScrollViewer _rowScroll = new();
-    private readonly TextBlock _summary = Ui.Label("", 17, bold: true);
-    private readonly TextBlock _status = Ui.Label("", 14, Ui.Muted);
+    private readonly StackPanel _countries;
+    private readonly StackPanel _rows;
+    private readonly ScrollViewer _rowScroll, _countryScroll;
+    private readonly TextBox _locationSearch, _countrySearch;
+    private readonly TextBlock _summary, _status, _noRelays;
+    private readonly Border _statusDot;
+    private readonly ContentControl _applyHost;
     private readonly TextBlock _history = Ui.Label("", 13);
     private readonly Queue<string> _events = new();
-    private readonly ProgressBar _progress = new() { IsVisible = false, Height = 5, Width = 120, Foreground = Ui.Accent };
-    private readonly WrapPanel _actions = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
-    private readonly CheckBox _selectAll = Ui.Checkbox(Ui.Label("Выбрать все", 15), "Выбрать все");
-    private readonly Button _stop = Ui.Button("Стоп", "player-stop");
-    private readonly Button _clear = Ui.Button("Снять всё", "trash", danger: true);
-    private readonly Button _allCountries = Ui.Button("Все страны", "check");
-    private readonly Button _noCountries = Ui.Button("Снять выбор", "minus");
-    private readonly Button _applyCountries = Ui.Button("Применить", "check", primary: true);
+    private readonly ProgressBar _progress;
+    private readonly WrapPanel _actions;
+    private readonly CheckBox _selectAll = Ui.Checkbox(Ui.Label("Выбрать все", 14), "Выбрать все");
+    private readonly Button _stop = MainButton("Стоп", "player-stop");
+    private readonly Button _clear = MainButton("Снять всё", "trash", danger: true);
+    private readonly Button _allCountries = MainButton("Все страны");
+    private readonly Button _noCountries = MainButton("Снять выбор");
+    private readonly Button _applyCountries = MainButton("Применить", "check", primary: true);
     private Button _pingButton = null!;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMinutes(1) };
     private readonly TrayIcon _tray;
@@ -45,83 +51,103 @@ internal sealed class MainWindow : Window
     private bool _busy, _populatingCountries, _updatingSelection, _policyPending, _refreshPending;
     private bool _closingForRestart;
     private bool _updateInProgress;
+    private bool _compactSummary;
     private Window? _settingsWindow;
     private DateTimeOffset _retryAfter;
     private DateTimeOffset _nextUpdateCheck;
 
     public MainWindow()
     {
-        Title = "CS2 — Блокировщик серверов";
-        Width = 1080; Height = 700;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        WindowDecorations = WindowDecorations.None;
-        TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
-        Background = Brushes.Transparent;
-        FontFamily = Ui.BodyFont; FontSize = 16;
+        AvaloniaXamlLoader.Load(this);
         using (var stream = Ui.Asset("cs2.ico")) Icon = new WindowIcon(stream);
+        T Part<T>(string name) where T : Control => this.FindControl<T>(name)!;
 
-        var root = Ui.Grid("*", "46,38,*");
-        var caption = Ui.Grid("32,*,36,36,36,36"); caption.ColumnSpacing = 3; caption.Margin = new Thickness(16, 0, 10, 0);
-        Ui.Put(caption, Ui.AppIcon());
-        var settings = Ui.CaptionButton("settings", "Настройки", () => { _ = OpenSettings(); });
-        Ui.Put(caption, settings, 2);
-        var minimize = Ui.CaptionButton("minus", "Свернуть в трей", () => WindowState = WindowState.Minimized);
-        var maximize = Ui.CaptionButton("square", "Развернуть / восстановить", ToggleMaximize);
-        Ui.Put(caption, minimize, 3); Ui.Put(caption, maximize, 4);
-        Ui.Put(caption, Ui.CaptionButton("x", "Закрыть приложение", Close, true), 5);
-        var titleBar = new Border { Background = Ui.Surface, BorderBrush = Ui.Border, BorderThickness = new Thickness(0, 0, 0, 1), Child = caption };
+        var outer = Part<Border>("Shell");
+        var titleBar = Part<Border>("TitleBar");
         Ui.AttachWindowDrag(this, titleBar);
-        Ui.Put(root, titleBar);
-
-        var activity = Ui.Grid("88,*,88"); activity.ColumnSpacing = 8; activity.Margin = new Thickness(12, 0);
-        _status.TextAlignment = TextAlignment.Center;
+        Part<ContentControl>("BrandIcon").Content = Ui.AppIcon(32);
+        var brandName = Part<TextBlock>("BrandName");
+        var autoTab = Part<Button>("AutoTab");
+        var settings = Part<Button>("SettingsTab");
+        var journal = Part<Button>("JournalTab");
+        var tabs = new[]
+        {
+            (autoTab, "Автоблокировка", Ui.Icon("adjustments-horizontal", 20)),
+            (settings, "Настройки", Ui.Icon("settings", 20, Ui.Muted)),
+            (journal, "Журнал", (Control)new Avalonia.Controls.Shapes.Path
+            {
+                Data = (Geometry)Resources["JournalGeometry"]!, Stroke = Ui.Muted, StrokeThickness = 1.5,
+                StrokeLineCap = PenLineCap.Round, Stretch = Stretch.Uniform, Width = 20, Height = 20,
+                VerticalAlignment = VerticalAlignment.Center
+            })
+        };
+        foreach (var (tab, label, tabIcon) in tabs)
+        {
+            tab.Content = ButtonContent(Ui.Label(label, 15, tab == autoTab ? Ui.Text : Ui.Muted, tab == autoTab), tabIcon);
+            ToolTip.SetTip(tab, label);
+        }
+        settings.Click += async (_, _) => await OpenSettings();
         _history.TextWrapping = TextWrapping.Wrap; _history.MaxWidth = 420;
-        var log = Ui.Button("Журнал", "clock", flat: true);
-        log.Height = 32; log.Padding = new Thickness(6, 0); log.HorizontalAlignment = HorizontalAlignment.Stretch;
-        log.Flyout = new Flyout { Content = _history };
-        _progress.HorizontalAlignment = HorizontalAlignment.Center; _progress.VerticalAlignment = VerticalAlignment.Center;
-        Ui.Put(activity, _progress); Ui.Put(activity, _status, 1); Ui.Put(activity, log, 2);
-        Ui.Put(root, new Border { Background = Ui.Background, BorderBrush = Ui.Border,
-            BorderThickness = new Thickness(0, 0, 0, 1), Child = activity }, 0, 1);
-
-        var body = Ui.Grid("244,*");
-        var sidebar = Ui.Grid("*", "32,Auto,38,38,8,*,8,82"); sidebar.Margin = new Thickness(12, 8, 12, 8);
-        var sideTitle = Ui.WithIcon("adjustments-horizontal", Ui.Label("Автоблокировка", 19, bold: true));
-        sideTitle.HorizontalAlignment = HorizontalAlignment.Center;
-        Ui.Put(sidebar, sideTitle);
-        var helper = Ui.Label("Выберите страны. Новые IP\nблокируются автоматически.", 13, Ui.Muted);
-        helper.TextWrapping = TextWrapping.Wrap; helper.TextAlignment = TextAlignment.Center;
-        helper.Margin = new Thickness(0, 4, 0, 8);
-        Ui.Put(sidebar, helper, 0, 1);
-        var countryActions = Ui.Grid("*,*"); countryActions.ColumnSpacing = 8;
+        journal.Flyout = new Flyout { Content = new ScrollViewer { Content = _history, MaxHeight = 380 } };
+        var captions = Part<StackPanel>("CaptionButtons");
+        captions.Children.Add(Ui.CaptionButton("minus", "Свернуть в трей", () => WindowState = WindowState.Minimized));
+        var maximize = Ui.CaptionButton("square", "Развернуть / восстановить", ToggleMaximize);
+        captions.Children.Add(maximize);
+        captions.Children.Add(Ui.CaptionButton("x", "Закрыть приложение", Close, true));
+        _status = Part<TextBlock>("ActivityText");
+        _statusDot = Part<Border>("ActivityDot");
+        _progress = Part<ProgressBar>("ActivityProgress");
+        _countries = Part<StackPanel>("CountryRows");
+        _countryScroll = Part<ScrollViewer>("CountryScroll");
+        _countrySearch = Part<TextBox>("CountrySearch");
+        _countrySearch.TextChanged += (_, _) => { _countryScroll.Offset = default; PopulateCountries(); };
+        var sideHeading = Ui.Label("Автоблокировка", bold: true);
+        sideHeading.ClearValue(TextBlock.FontSizeProperty);
+        sideHeading.Classes.Add("sideHeading");
+        Part<ContentControl>("SidebarTitle").Content = ButtonContent(sideHeading, Ui.Icon("adjustments-horizontal", 21));
+        const string schedule = "Проверка каждые 12 часов";
+        var scheduleLabel = Ui.Label(schedule, 13);
+        var scheduleGroup = ButtonContent(scheduleLabel, Ui.Icon("clock", 19));
+        ToolTip.SetTip(scheduleGroup, schedule);
+        Part<ContentControl>("ScheduleLabel").Content = scheduleGroup;
+        var sidebarDescription = Part<TextBlock>("SidebarDescription");
+        string description = sidebarDescription.Text!;
+        SizeChanged += (_, e) =>
+        {
+            bool compact = e.NewSize.Width < 900 || e.NewSize.Height < 620;
+            Classes.Set("compact", compact);
+            brandName.IsVisible = e.NewSize.Width >= 690;
+            scheduleLabel.Text = compact ? "Проверка раз в 12 ч" : schedule;
+            sidebarDescription.Text = e.NewSize.Height < 490 ? "Блокировка по странам" : description;
+            foreach (var (tab, _, _) in tabs)
+                ((StackPanel)tab.Content!).Children[1].IsVisible = e.NewSize.Width >= 570;
+        };
+        var countryActions = Part<Grid>("CountryActions");
         foreach (var button in new[] { _allCountries, _noCountries, _applyCountries })
         {
-            button.Height = 34; button.MinHeight = 0; button.Padding = new Thickness(8, 0);
+            button.Padding = new Thickness(3, 0);
             button.HorizontalAlignment = HorizontalAlignment.Stretch; button.IsEnabled = _isAdmin;
         }
-        _allCountries.Content = Ui.Label("Все страны", 13);
-        _noCountries.Content = Ui.Label("Снять выбор", 13);
+        ((TextBlock)_allCountries.Content!).FontSize = 12.5;
+        ((TextBlock)_noCountries.Content!).FontSize = 12.5;
+        ToolTip.SetTip(_allCountries, "Отметить все страны, включая скрытые поиском.");
+        ToolTip.SetTip(_noCountries, "Снять отметки со всех стран.");
         _allCountries.Click += (_, _) => SelectCountries(true);
         _noCountries.Click += (_, _) => SelectCountries(false);
+        _applyHost = Part<ContentControl>("ApplyHost");
+        _applyHost.Content = _applyCountries;
         _applyCountries.IsEnabled = false;
         _applyCountries.Click += async (_, _) => await Operate(ApplyCountryDraft);
         Ui.Put(countryActions, _allCountries); Ui.Put(countryActions, _noCountries, 1);
-        Ui.Put(sidebar, countryActions, 0, 2); Ui.Put(sidebar, _applyCountries, 0, 3); Ui.Put(sidebar, Ui.Line(), 0, 4);
-        Ui.Put(sidebar, new ScrollViewer { Content = _countries, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled }, 0, 5);
-        Ui.Put(sidebar, Ui.Line(), 0, 6);
         _clear.IsEnabled = _isAdmin;
-        _clear.Click += async (_, _) => await Operate(ClearAll);
-        var trayHint = Ui.Label("Работает и в трее", 12.5, Ui.Muted); trayHint.TextAlignment = TextAlignment.Center;
-        var sideFooter = Ui.Stack(3,
-            Ui.WithIcon("clock", Ui.Label("Проверка каждые 12 часов", 13)),
-            trayHint, _clear);
-        sideFooter.HorizontalAlignment = HorizontalAlignment.Center;
         _clear.HorizontalAlignment = HorizontalAlignment.Center;
-        Ui.Put(sidebar, sideFooter, 0, 7);
-        Ui.Put(body, new Border { Background = Ui.Surface, Child = sidebar });
+        _clear.MinWidth = 142;
+        _clear.Click += async (_, _) => await Operate(ClearAll);
+        Part<StackPanel>("SidebarFooter").Children.Add(_clear);
 
-        var main = Ui.Grid("*", "Auto,*,34"); main.Margin = new Thickness(12, 10, 10, 0);
-        _selectAll.Width = 130; _selectAll.Height = 38; _selectAll.Margin = new Thickness(3, 0, 3, 6);
+        _actions = Part<WrapPanel>("RelayActions");
+        _selectAll.Height = 38; _selectAll.Margin = new Thickness(0, 0, 8, 0);
+        ToolTip.SetTip(_selectAll, "Выбрать все локации с IP, включая скрытые поиском.");
         _selectAll.IsCheckedChanged += (_, _) =>
         {
             if (_updatingSelection) return;
@@ -133,18 +159,53 @@ internal sealed class MainWindow : Window
         AddAction("Разблокировать", "lock-open", () => SetSelected(false), true);
         AddAction("Обновить", "refresh", RefreshServers);
         _pingButton = AddAction("Пинг", "antenna-bars-5", PingAll);
-        _stop.IsVisible = false; _stop.Margin = new Thickness(3, 0, 3, 6); _stop.Click += (_, _) => _pingCancellation?.Cancel();
+        _stop.Classes.Add("relayAction");
+        _stop.IsVisible = false; _stop.Margin = new Thickness(0, 0, 8, 0); _stop.Click += (_, _) => _pingCancellation?.Cancel();
         _actions.Children.Add(_stop);
-        Ui.Put(main, _actions);
-
-        var catalog = Ui.Grid("*", "38,*");
-        var tableHead = Ui.Grid(Columns); tableHead.HorizontalAlignment = HorizontalAlignment.Left;
+        _locationSearch = Part<TextBox>("LocationSearch");
+        autoTab.Click += (_, _) => _locationSearch.Focus();
+        _noRelays = Part<TextBlock>("NoRelays");
+        _summary = Part<TextBlock>("RelaySummary");
+        var adminBadge = Part<Border>("AdminBadge");
+        adminBadge.Classes.Set("blocked", !_isAdmin);
+        string permission = _isAdmin ? "Права администратора активны" : "Нужны права администратора";
+        var adminLabel = Ui.Label(permission, 13, _isAdmin ? Ui.Text : Ui.Accent);
+        adminBadge.Child = ButtonContent(adminLabel, Ui.Icon("shield", 17, _isAdmin ? Ui.Muted : Ui.Accent));
+        ToolTip.SetTip(adminBadge, permission);
+        var searchFrame = Part<Border>("LocationSearchFrame");
+        var toolbar = Part<Grid>("Toolbar");
+        _rows = Part<StackPanel>("RelayRows");
+        _rowScroll = Part<ScrollViewer>("RelayScroll");
+        _locationSearch.TextChanged += (_, _) => { _rowScroll.Offset = default; RenderRows(); };
+        var tableHead = Ui.Grid(_columns); tableHead.HorizontalAlignment = HorizontalAlignment.Left;
+        toolbar.SizeChanged += (_, e) =>
+        {
+            bool stacked = e.NewSize.Width < 840;
+            Grid.SetColumn(searchFrame, stacked ? 0 : 1);
+            Grid.SetRow(searchFrame, stacked ? 1 : 0);
+            searchFrame.Width = stacked ? double.NaN : 208;
+            searchFrame.Margin = new Thickness(0, stacked ? 5 : 0, 0, 0);
+            bool compactSummary = e.NewSize.Width < 520;
+            adminLabel.Text = compactSummary ? (_isAdmin ? "Администратор" : "Нужны права") : permission;
+            if (_compactSummary != compactSummary)
+            {
+                _compactSummary = compactSummary;
+                UpdateSummary();
+            }
+            string columns = e.NewSize.Width < 720 ? CompactColumns : WideColumns;
+            if (columns == _columns) return;
+            _columns = columns;
+            tableHead.ColumnDefinitions = ColumnDefinitions.Parse(columns);
+            foreach (var row in _rows.Children.OfType<Border>())
+                if (row.Child is Grid grid) grid.ColumnDefinitions = ColumnDefinitions.Parse(columns);
+        };
         _rowScroll.ScrollChanged += (_, _) =>
         {
             if (_rowScroll.Viewport.Width > 0) tableHead.Width = _rowScroll.Viewport.Width;
         };
         var headerCheck = Ui.Checkbox(new Border(), "Выбрать все строки");
         headerCheck.Width = 34; headerCheck.MinHeight = 0; headerCheck.HorizontalAlignment = HorizontalAlignment.Center;
+        ToolTip.SetTip(headerCheck, "Выбрать все локации с IP, включая скрытые поиском.");
         headerCheck.IsCheckedChanged += (_, _) =>
         {
             if (_updatingSelection) return;
@@ -156,22 +217,11 @@ internal sealed class MainWindow : Window
         string[] headings = { "Локация", "Страна", "IP", "Пинг", "Статус" };
         for (int i = 0; i < headings.Length; i++)
         {
-            var label = Ui.Label(headings[i], 13, Ui.Muted, bold: true); label.TextAlignment = TextAlignment.Center;
+            var label = Ui.Label(headings[i], 13, Ui.Muted);
+            label.TextAlignment = TextAlignment.Center;
             Ui.Put(tableHead, label, i + 1);
         }
-        Ui.Put(catalog, new Border { Background = Ui.Surface, BorderBrush = Ui.Border, BorderThickness = new Thickness(0, 0, 0, 1), Child = tableHead });
-        _rowScroll.Content = _rows;
-        _rowScroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-        _rowScroll.VerticalScrollBarVisibility = ScrollBarVisibility.Visible;
-        Ui.Put(catalog, _rowScroll, 0, 1);
-        Ui.Put(main, Ui.Round(catalog), 0, 1);
-        _progress.Width = 72;
-        _summary.FontSize = 13.5; _summary.FontWeight = FontWeight.Normal; _summary.Foreground = Ui.Muted;
-        _summary.TextAlignment = TextAlignment.Center;
-        Ui.Put(main, _summary, 0, 2);
-        Ui.Put(body, main, 1); Ui.Put(root, body, 0, 2);
-        var outer = Ui.Round(root, radius: 18);
-        Content = outer;
+        Part<ContentControl>("TableHeaderHost").Content = tableHead;
         FitToScreen();
         Screens.Changed += ScreenChanged;
 
@@ -368,12 +418,29 @@ internal sealed class MainWindow : Window
         }
     }
 
+    private static StackPanel ButtonContent(TextBlock text, Control icon) => new()
+    {
+        Orientation = Orientation.Horizontal, Spacing = 8, Children = { icon, text }
+    };
+
+    private static Button MainButton(string text, string? icon = null, bool primary = false, bool danger = false)
+    {
+        var color = primary ? Ui.Background : danger ? Ui.Danger : Ui.Text;
+        var label = Ui.Label(text, 13.5, color);
+        var button = new Button { Content = icon == null ? label : ButtonContent(label, Ui.Icon(icon, 17, color)) };
+        button.Classes.Add("mainAction");
+        button.Classes.Set("primary", primary);
+        button.Classes.Set("danger", danger);
+        AutomationProperties.SetName(button, text);
+        return button;
+    }
+
     private Button AddAction(string text, string icon, Func<Task> action, bool admin = false, bool primary = false)
     {
-        var button = Ui.Button(text, icon, primary, flat: true);
+        var button = MainButton(text, icon, primary);
+        button.Classes.Add("relayAction");
         button.Tag = admin; button.IsEnabled = !admin || _isAdmin;
-        button.MinWidth = 82;
-        button.Margin = new Thickness(3, 0, 3, 6);
+        button.Margin = new Thickness(0, 0, 8, 4);
         button.Click += async (_, _) => await Operate(action);
         _actions.Children.Add(button);
         return button;
@@ -400,7 +467,7 @@ internal sealed class MainWindow : Window
         _countries.IsEnabled = enabled && _isAdmin; _rows.IsEnabled = enabled; _clear.IsEnabled = enabled && _isAdmin;
         _allCountries.IsEnabled = enabled && _isAdmin;
         _noCountries.IsEnabled = enabled && _isAdmin;
-        _applyCountries.IsEnabled = enabled && _isAdmin && HasCountryDraft;
+        UpdateCountryAction();
     }
 
     private async Task RefreshServers()
@@ -441,27 +508,40 @@ internal sealed class MainWindow : Window
     private void PopulateCountries()
     {
         _populatingCountries = true; _countries.Children.Clear();
+        string query = _countrySearch.Text?.Trim() ?? "";
         foreach (string code in _servers.Select(s => s.Country).Concat(_settings.BlockedCountries).Concat(_countryDraft).Where(c => c.Length > 0)
             .Distinct().OrderByDescending(c => _settings.BlockedCountries.Contains(c)).ThenBy(ServerCatalog.CountryName))
         {
+            string countryName = ServerCatalog.CountryName(code);
+            if (!countryName.Contains(query, StringComparison.CurrentCultureIgnoreCase) &&
+                !code.Contains(query, StringComparison.OrdinalIgnoreCase)) continue;
             var content = Ui.Grid("28,*,24"); content.ColumnSpacing = 8;
-            Ui.Put(content, Ui.Flag(code)); Ui.Put(content, Ui.Label(ServerCatalog.CountryName(code), 14), 1);
+            var name = Ui.Label(countryName, 14); name.TextAlignment = TextAlignment.Center;
+            Ui.Put(content, Ui.Flag(code)); Ui.Put(content, name, 1);
             var count = Ui.Label(_servers.Count(s => s.Country == code).ToString(), 13, Ui.Muted);
             count.TextAlignment = TextAlignment.Center; Ui.Put(content, count, 2);
-            var checkbox = Ui.Checkbox(content, ServerCatalog.CountryName(code), _countryDraft.Contains(code));
-            checkbox.Height = 38;
+            var checkbox = Ui.Checkbox(content, countryName, _countryDraft.Contains(code), highlightSelection: true);
+            checkbox.Height = 36;
             checkbox.IsCheckedChanged += (_, _) =>
             {
                 if (_populatingCountries) return;
                 if (checkbox.IsChecked == true) _countryDraft.Add(code); else _countryDraft.Remove(code);
-                _applyCountries.IsEnabled = !_busy && _isAdmin && HasCountryDraft;
+                UpdateCountryAction();
             };
             _countries.Children.Add(checkbox);
         }
+        if (query.Length > 0 && _countries.Children.Count == 0)
+            _countries.Children.Add(Ui.Label("Страны не найдены", 13, Ui.Muted));
         _populatingCountries = false;
     }
 
     private bool HasCountryDraft => !_countryDraft.SetEquals(_settings.BlockedCountries);
+
+    private void UpdateCountryAction()
+    {
+        _applyHost.IsVisible = HasCountryDraft;
+        _applyCountries.IsEnabled = !_busy && _isAdmin && _applyHost.IsVisible;
+    }
 
     private void SelectCountries(bool select)
     {
@@ -469,7 +549,7 @@ internal sealed class MainWindow : Window
         if (select) _countryDraft.UnionWith(_servers.Select(s => s.Country).Where(c => c.Length > 0).Concat(_settings.BlockedCountries));
         else _countryDraft.Clear();
         PopulateCountries();
-        _applyCountries.IsEnabled = HasCountryDraft;
+        UpdateCountryAction();
     }
 
     private async Task ApplyCountryDraft()
@@ -561,28 +641,38 @@ internal sealed class MainWindow : Window
     private void RenderRows()
     {
         var offset = _rowScroll.Offset; _rows.Children.Clear();
+        string query = _locationSearch.Text?.Trim() ?? "";
         foreach (var server in _servers)
         {
-            var grid = Ui.Grid(Columns); grid.Height = 44;
-            var border = new Border { BorderBrush = Ui.Border, BorderThickness = new Thickness(0, 0, 0, 1), Background = server.Checked ? Ui.Selection : Ui.Background, Child = grid };
+            string countryName = ServerCatalog.CountryName(server.Country);
+            if (!server.Description.Contains(query, StringComparison.CurrentCultureIgnoreCase) &&
+                !server.Code.Contains(query, StringComparison.OrdinalIgnoreCase) &&
+                !countryName.Contains(query, StringComparison.CurrentCultureIgnoreCase) &&
+                !server.Addresses.Any(ip => ip.Contains(query, StringComparison.Ordinal))) continue;
+            var grid = Ui.Grid(_columns); grid.Height = 41;
+            var border = new Border { Child = grid, Classes = { "relayRow" } };
+            border.Classes.Set("selected", server.Checked);
             var pick = Ui.Checkbox(new Border(), $"Выбрать {server.Description}", server.Checked);
             pick.Width = 34; pick.HorizontalAlignment = HorizontalAlignment.Center; pick.IsEnabled = server.Addresses.Count > 0;
-            pick.IsCheckedChanged += (_, _) => { server.Checked = pick.IsChecked == true; border.Background = server.Checked ? Ui.Selection : Ui.Background; UpdateSummary(); };
+            pick.IsCheckedChanged += (_, _) => { server.Checked = pick.IsChecked == true; border.Classes.Set("selected", server.Checked); UpdateSummary(); };
             Ui.Put(grid, pick);
             string location = server.Country.Length == 0 ? server.Description : System.Text.RegularExpressions.Regex.Replace(server.Description, @"\s*\([^()]*\)\s*$", "");
-            var code = Ui.Label(server.Code, 12, Ui.Muted); code.FontFamily = Ui.MonoFont; code.TextAlignment = TextAlignment.Center;
+            var code = Ui.Label(server.Code, 12, Ui.Muted); code.TextAlignment = TextAlignment.Center;
             var name = Ui.Label(location, 15, bold: true); name.TextAlignment = TextAlignment.Center;
             var locationCell = Ui.Stack(1, name, code);
-            locationCell.Margin = new Thickness(6, 0); locationCell.VerticalAlignment = VerticalAlignment.Center;
+            locationCell.Margin = new Thickness(9, 0); locationCell.VerticalAlignment = VerticalAlignment.Center;
             ToolTip.SetTip(locationCell, server.Description + "\n" + string.Join("\n", server.Addresses)); Ui.Put(grid, locationCell, 1);
-            var country = Ui.Grid("28,*"); country.ColumnSpacing = 7; country.Margin = new Thickness(5, 0);
+            var country = Ui.Grid("28,*"); country.ColumnSpacing = 7; country.Margin = new Thickness(4, 0);
             country.HorizontalAlignment = HorizontalAlignment.Center;
-            Ui.Put(country, Ui.Flag(server.Country)); Ui.Put(country, Ui.Label(ServerCatalog.CountryName(server.Country), 13), 1);
-            ToolTip.SetTip(country, ServerCatalog.CountryName(server.Country)); Ui.Put(grid, country, 2);
-            var addressCount = Ui.Label(server.Addresses.Count.ToString(), 13); addressCount.FontFamily = Ui.MonoFont;
+            var countryText = Ui.Label(countryName, 13); countryText.TextAlignment = TextAlignment.Center;
+            countryText.ClearValue(TextBlock.FontSizeProperty);
+            countryText.Classes.Add("relayCountryName");
+            Ui.Put(country, Ui.Flag(server.Country)); Ui.Put(country, countryText, 1);
+            ToolTip.SetTip(country, countryName); Ui.Put(grid, country, 2);
+            var addressCount = Ui.Label(server.Addresses.Count.ToString(), 14);
             addressCount.TextAlignment = TextAlignment.Center; Ui.Put(grid, addressCount, 3);
             var ping = Ui.Label(server.PingMs == -2 ? "—" : server.PingMs < 0 ? "Таймаут" : $"{server.PingMs} мс", 13);
-            ping.FontFamily = Ui.MonoFont; ping.TextAlignment = TextAlignment.Center; Ui.Put(grid, ping, 4);
+            ping.TextAlignment = TextAlignment.Center; Ui.Put(grid, ping, 4);
             Ui.Put(grid, StatusBadge(server), 5);
             border.DoubleTapped += async (_, e) =>
             {
@@ -591,6 +681,7 @@ internal sealed class MainWindow : Window
             };
             _rows.Children.Add(border);
         }
+        _noRelays.IsVisible = query.Length > 0 && _rows.Children.Count == 0;
         _rowScroll.Offset = offset; UpdateSummary();
     }
 
@@ -600,11 +691,12 @@ internal sealed class MainWindow : Window
         string text = server.Addresses.Count == 0 ? "Нет IP от Valve" : !server.FirewallKnown ? "Не проверен" : blocked ? automatic ? "Авто · блок" : "Заблокирован" : automatic ? "Ожидает блокировки" : "Доступен";
         bool unknown = server.Addresses.Count == 0 || !server.FirewallKnown;
         var color = blocked ? Ui.Accent : unknown ? Ui.Muted : Ui.Text;
-        var label = Ui.Label(text, 12, color); label.TextAlignment = TextAlignment.Center;
-        var badge = Ui.Round(label, blocked ? Ui.Selection : Ui.Surface, 8);
-        badge.Padding = new Thickness(6, 0); badge.Height = 26; badge.Margin = new Thickness(4, 0);
-        badge.VerticalAlignment = VerticalAlignment.Center;
-        badge.MaxWidth = 175; ToolTip.SetTip(badge, text); return badge;
+        var label = Ui.Label(text, 13, color); label.TextAlignment = TextAlignment.Center;
+        label.ClearValue(TextBlock.FontSizeProperty);
+        var badge = new Border { Child = label, Classes = { "statusBadge", "relayStatus" },
+            Height = 28, VerticalAlignment = VerticalAlignment.Center };
+        badge.Classes.Set("blocked", blocked);
+        ToolTip.SetTip(badge, text); return badge;
     }
 
     private void UpdateSummary()
@@ -612,12 +704,15 @@ internal sealed class MainWindow : Window
         _updatingSelection = true;
         _selectAll.IsChecked = _servers.Any(s => s.Addresses.Count > 0) && _servers.Where(s => s.Addresses.Count > 0).All(s => s.Checked);
         _updatingSelection = false;
-        string rules = _servers.Any(s => s.Addresses.Count > 0 && !s.FirewallKnown)
-            ? "правила не проверены" : $"{_servers.Count(s => s.Blocked)} заблокировано";
-        _summary.Text = $"{_servers.Count} локаций · {_servers.Sum(s => s.Addresses.Count)} IP · {rules}";
+        bool uncheckedRules = _servers.Any(s => s.Addresses.Count > 0 && !s.FirewallKnown);
+        int blocked = _servers.Count(s => s.Blocked), addresses = _servers.Sum(s => s.Addresses.Count);
+        string rules = uncheckedRules ? "правила не проверены" : $"{blocked} заблокировано";
+        string summary = $"{_servers.Count} локаций · {addresses} IP · {rules}";
+        _summary.Text = _compactSummary
+            ? $"{_servers.Count} локац. · {addresses} IP · {(uncheckedRules ? "проверка правил" : $"{blocked} блок.")}" : summary;
         string last = _settings.LastRefreshUtc?.ToLocalTime().ToString("dd.MM HH:mm") ?? "ещё не было";
         string next = _settings.LastRefreshUtc?.Add(ServerCatalog.RefreshInterval).ToLocalTime().ToString("dd.MM HH:mm") ?? "сейчас";
-        ToolTip.SetTip(_summary, $"Обновлено: {last}  ·  Следующее: {next}");
+        ToolTip.SetTip(_summary, $"{summary}\nОбновлено: {last}  ·  Следующее: {next}");
     }
     private void SetStatus(string message, bool error = false)
     {
@@ -625,6 +720,7 @@ internal sealed class MainWindow : Window
         if (_events.Count == 8) _events.Dequeue();
         _events.Enqueue(entry);
         _history.Text = string.Join("\n\n", _events.Reverse());
+        _statusDot.Classes.Set("error", error);
         _status.Text = entry; _status.Foreground = error ? Ui.Danger : Ui.Muted; ToolTip.SetTip(_status, message);
     }
     private void ToggleMaximize() => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;

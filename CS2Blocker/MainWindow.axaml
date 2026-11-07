@@ -1,0 +1,320 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="CS2Blocker.MainWindow"
+        Title="CS2 — Блокировщик серверов" Width="1254" Height="802"
+        WindowStartupLocation="CenterScreen" WindowDecorations="None"
+        TransparencyLevelHint="Transparent" Background="Transparent"
+        FontFamily="{DynamicResource BlockerFont}" UseLayoutRounding="True">
+  <Window.Resources>
+    <SolidColorBrush x:Key="CanvasBrush">#101213</SolidColorBrush>
+    <SolidColorBrush x:Key="CardBrush">#161819</SolidColorBrush>
+    <SolidColorBrush x:Key="RaisedBrush">#1B1E20</SolidColorBrush>
+    <SolidColorBrush x:Key="LineBrush">#292D30</SolidColorBrush>
+    <SolidColorBrush x:Key="HoverBrush">#222628</SolidColorBrush>
+    <SolidColorBrush x:Key="SelectedBrush">#332B1E</SolidColorBrush>
+    <SolidColorBrush x:Key="GoldLineBrush">#544329</SolidColorBrush>
+    <SolidColorBrush x:Key="TextControlPlaceholderForeground">#A9AEB2</SolidColorBrush>
+    <StreamGeometry x:Key="SearchGeometry">M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0 M21 21l-6 -6</StreamGeometry>
+    <StreamGeometry x:Key="JournalGeometry">M14 3v4a1 1 0 0 0 1 1h4 M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2 M9 17h6 M9 13h6</StreamGeometry>
+    <StreamGeometry x:Key="StatsGeometry">M12 4l-8 4l8 4l8 -4l-8 -4 M4 12l8 4l8 -4 M4 16l8 4l8 -4</StreamGeometry>
+  </Window.Resources>
+  <Window.Styles>
+    <Style Selector="Border.mainCard">
+      <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="13" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <Style Selector="Border.mainTitle">
+      <Setter Property="Height" Value="58" />
+    </Style>
+    <Style Selector="Border.mainActivity">
+      <Setter Property="Height" Value="45" />
+    </Style>
+    <Style Selector="Grid.mainBody">
+      <Setter Property="Margin" Value="16,12,16,36" />
+      <Setter Property="ColumnSpacing" Value="16" />
+    </Style>
+    <Style Selector="Grid.sideContent">
+      <Setter Property="Margin" Value="15,15,15,17" />
+      <Setter Property="RowSpacing" Value="10" />
+    </Style>
+    <Style Selector="Grid.catalogArea">
+      <Setter Property="Margin" Value="0,7,0,12" />
+      <Setter Property="RowSpacing" Value="16" />
+    </Style>
+    <Style Selector="Window.compact Border.mainTitle">
+      <Setter Property="Height" Value="46" />
+    </Style>
+    <Style Selector="Window.compact Border.mainActivity">
+      <Setter Property="Height" Value="34" />
+    </Style>
+    <Style Selector="Window.compact Grid.mainBody">
+      <Setter Property="Margin" Value="10,8,10,10" />
+      <Setter Property="ColumnSpacing" Value="10" />
+    </Style>
+    <Style Selector="Window.compact Grid.sideContent">
+      <Setter Property="Margin" Value="9" />
+      <Setter Property="RowSpacing" Value="5" />
+    </Style>
+    <Style Selector="Window.compact Grid.catalogArea">
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="RowSpacing" Value="8" />
+    </Style>
+    <Style Selector="TextBlock.sideHeading">
+      <Setter Property="FontSize" Value="19" />
+    </Style>
+    <Style Selector="Window.compact TextBlock.sideHeading">
+      <Setter Property="FontSize" Value="16" />
+    </Style>
+    <Style Selector="TextBlock.brandLabel">
+      <Setter Property="FontSize" Value="21" />
+    </Style>
+    <Style Selector="Window.compact TextBlock.brandLabel">
+      <Setter Property="FontSize" Value="18" />
+    </Style>
+    <Style Selector="Button.mainAction">
+      <Setter Property="Height" Value="38" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Background" Value="{DynamicResource CanvasBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BlockerBorder}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="{DynamicResource BlockerText}" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border x:Name="ActionFrame" Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}">
+            <ContentPresenter Content="{TemplateBinding Content}" Padding="{TemplateBinding Padding}"
+                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Button.mainAction:pointerover /template/ Border#ActionFrame">
+      <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+    </Style>
+    <Style Selector="Button.mainAction:pressed /template/ Border#ActionFrame">
+      <Setter Property="Background" Value="{DynamicResource SelectedBrush}" />
+    </Style>
+    <Style Selector="Button.mainAction:focus-visible /template/ Border#ActionFrame">
+      <Setter Property="BorderBrush" Value="{DynamicResource BlockerAccent}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.mainAction.primary">
+      <Setter Property="Background" Value="{DynamicResource BlockerAccent}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BlockerAccent}" />
+    </Style>
+    <Style Selector="Button.mainAction.primary:pointerover /template/ Border#ActionFrame">
+      <Setter Property="Background" Value="#F1BF64" />
+    </Style>
+    <Style Selector="Button.mainAction.primary:pressed /template/ Border#ActionFrame">
+      <Setter Property="Background" Value="#CC953F" />
+    </Style>
+    <Style Selector="Button.mainAction.danger">
+      <Setter Property="BorderBrush" Value="#573A38" />
+      <Setter Property="Background" Value="#211D1D" />
+    </Style>
+    <Style Selector="Button.mainAction.nav">
+      <Setter Property="Height" Value="44" />
+      <Setter Property="Padding" Value="14,0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.mainAction.nav.active">
+      <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BlockerAccent}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1.5" />
+    </Style>
+    <Style Selector="Window.compact Button.mainAction.nav">
+      <Setter Property="Height" Value="36" />
+      <Setter Property="Padding" Value="9,0" />
+    </Style>
+    <Style Selector="Window.compact Button.mainAction.relayAction">
+      <Setter Property="Padding" Value="8,0" />
+    </Style>
+    <Style Selector="Button.mainAction:disabled">
+      <Setter Property="Opacity" Value="0.48" />
+    </Style>
+    <Style Selector="Border.relayRow">
+      <Setter Property="Background" Value="{DynamicResource CanvasBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+    <Style Selector="Border.relayRow:pointerover">
+      <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+    </Style>
+    <Style Selector="Border.relayRow.selected">
+      <Setter Property="Background" Value="{DynamicResource SelectedBrush}" />
+    </Style>
+    <Style Selector="Border.statusBadge">
+      <Setter Property="Background" Value="{DynamicResource RaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+    </Style>
+    <Style Selector="Border.statusBadge.blocked">
+      <Setter Property="Background" Value="{DynamicResource SelectedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource GoldLineBrush}" />
+    </Style>
+    <Style Selector="Border.statusBadge.relayStatus">
+      <Setter Property="Margin" Value="12,0" />
+      <Setter Property="Padding" Value="7,0" />
+    </Style>
+    <Style Selector="Window.compact Border.statusBadge.relayStatus">
+      <Setter Property="Margin" Value="3,0" />
+      <Setter Property="Padding" Value="2,0" />
+    </Style>
+    <Style Selector="TextBlock.relayCountryName, Border.relayStatus TextBlock">
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="Window.compact TextBlock.relayCountryName">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="MaxLines" Value="2" />
+    </Style>
+    <Style Selector="Window.compact Border.relayStatus TextBlock">
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+    <Style Selector="Border.activityDot">
+      <Setter Property="Background" Value="#29AE4D" />
+    </Style>
+    <Style Selector="Border.activityDot.error">
+      <Setter Property="Background" Value="#E48075" />
+    </Style>
+    <Style Selector="Border.searchField">
+      <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Height" Value="38" />
+    </Style>
+    <Style Selector="Border.searchField:focus-within">
+      <Setter Property="BorderBrush" Value="{DynamicResource BlockerAccent}" />
+    </Style>
+    <Style Selector="ContentControl.searchGlyph">
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Path Data="{StaticResource SearchGeometry}" Stretch="Uniform" Width="16" Height="16"
+                Stroke="{DynamicResource BlockerMuted}" StrokeThickness="1.5" StrokeLineCap="Round"
+                HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="TextBox.searchInput">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="2,0,10,0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="PlaceholderForeground" Value="{DynamicResource BlockerMuted}" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+  </Window.Styles>
+  <Border x:Name="Shell" Background="{DynamicResource CanvasBrush}" BorderBrush="{DynamicResource LineBrush}"
+          BorderThickness="1" CornerRadius="15" ClipToBounds="True">
+    <Grid RowDefinitions="Auto,Auto,*">
+      <Border x:Name="TitleBar" Classes="mainTitle" Background="{DynamicResource CanvasBrush}" BorderBrush="{DynamicResource LineBrush}"
+              BorderThickness="0,0,0,1">
+        <Grid ColumnDefinitions="*,Auto,*" Margin="22,0,12,0">
+          <StackPanel Orientation="Horizontal" Spacing="17" VerticalAlignment="Center">
+            <ContentControl x:Name="BrandIcon" />
+            <TextBlock x:Name="BrandName" Classes="brandLabel" Text="Valve Blocker" Foreground="{DynamicResource BlockerText}"
+                       FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <Button x:Name="AutoTab" Classes="mainAction nav active" AutomationProperties.Name="Автоблокировка" />
+            <Button x:Name="SettingsTab" Classes="mainAction nav" AutomationProperties.Name="Настройки" />
+            <Button x:Name="JournalTab" Classes="mainAction nav" AutomationProperties.Name="Журнал" />
+          </StackPanel>
+          <StackPanel x:Name="CaptionButtons" Grid.Column="2" Orientation="Horizontal" Spacing="6"
+                      HorizontalAlignment="Right" VerticalAlignment="Center" />
+        </Grid>
+      </Border>
+      <Border Grid.Row="1" Classes="mainActivity" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource LineBrush}"
+              BorderThickness="0,0,0,1">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="15" Margin="18,0">
+          <Grid ColumnDefinitions="12,*" ColumnSpacing="12" HorizontalAlignment="Center">
+            <Border x:Name="ActivityDot" Classes="activityDot" Width="11" Height="11" CornerRadius="6" VerticalAlignment="Center" />
+            <TextBlock x:Name="ActivityText" Grid.Column="1" Foreground="{DynamicResource BlockerMuted}" FontSize="14" TextAlignment="Center"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          </Grid>
+          <ProgressBar x:Name="ActivityProgress" Grid.Column="1" Width="84" Height="5" IsVisible="False"
+                       Foreground="{DynamicResource BlockerAccent}" VerticalAlignment="Center" />
+        </Grid>
+      </Border>
+      <Grid Grid.Row="2" Classes="mainBody">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="24*" MinWidth="200" MaxWidth="290" />
+          <ColumnDefinition Width="76*" />
+        </Grid.ColumnDefinitions>
+        <Border Classes="mainCard">
+          <Grid Classes="sideContent" RowDefinitions="Auto,38,Auto,Auto,*,Auto">
+            <StackPanel Spacing="9">
+              <ContentControl x:Name="SidebarTitle" HorizontalContentAlignment="Center" />
+              <TextBlock x:Name="SidebarDescription" Text="Управление блокировками серверов Valve по странам и локациям."
+                         Foreground="{DynamicResource BlockerMuted}" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" />
+            </StackPanel>
+            <Border Grid.Row="1" Classes="searchField">
+              <Grid ColumnDefinitions="34,*">
+                <ContentControl Classes="searchGlyph" />
+                <TextBox x:Name="CountrySearch" Grid.Column="1" Classes="searchInput" PlaceholderText="Поиск страны…"
+                         AutomationProperties.Name="Поиск страны" />
+              </Grid>
+            </Border>
+            <Grid x:Name="CountryActions" Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8" />
+            <ContentControl x:Name="ApplyHost" Grid.Row="3" HorizontalContentAlignment="Stretch" IsVisible="False" />
+            <ScrollViewer x:Name="CountryScroll" Grid.Row="4" HorizontalScrollBarVisibility="Disabled">
+              <StackPanel x:Name="CountryRows" Spacing="1" />
+            </ScrollViewer>
+            <StackPanel x:Name="SidebarFooter" Grid.Row="5" Spacing="7">
+              <Border Height="1" Background="{DynamicResource LineBrush}" Margin="0,0,0,5" />
+              <ContentControl x:Name="ScheduleLabel" HorizontalContentAlignment="Center" />
+              <TextBlock Text="Работает в трее" Foreground="{DynamicResource BlockerMuted}" FontSize="13" TextAlignment="Center" />
+            </StackPanel>
+          </Grid>
+        </Border>
+        <Grid Grid.Column="1" Classes="catalogArea" RowDefinitions="Auto,*,Auto">
+          <Grid x:Name="Toolbar" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10">
+            <WrapPanel x:Name="RelayActions" Orientation="Horizontal" />
+            <Border x:Name="LocationSearchFrame" Grid.Column="1" Classes="searchField" Width="208"
+                    VerticalAlignment="Top">
+              <Grid ColumnDefinitions="34,*">
+                <ContentControl Classes="searchGlyph" />
+                <TextBox x:Name="LocationSearch" Grid.Column="1" Classes="searchInput" PlaceholderText="Поиск локации / IP…"
+                         AutomationProperties.Name="Поиск локации или IP" />
+              </Grid>
+            </Border>
+          </Grid>
+          <Border Grid.Row="1" Classes="mainCard">
+            <Grid RowDefinitions="42,*">
+              <Border Background="{DynamicResource RaisedBrush}" BorderBrush="{DynamicResource LineBrush}"
+                      BorderThickness="0,0,0,1">
+                <ContentControl x:Name="TableHeaderHost" HorizontalContentAlignment="Stretch" />
+              </Border>
+              <ScrollViewer x:Name="RelayScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
+                            VerticalScrollBarVisibility="Visible">
+                <StackPanel x:Name="RelayRows" />
+              </ScrollViewer>
+              <TextBlock x:Name="NoRelays" Grid.Row="1" Text="Локации не найдены" IsVisible="False" IsHitTestVisible="False"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource BlockerMuted}" />
+            </Grid>
+          </Border>
+          <Border Grid.Row="2" Classes="mainCard" Background="{DynamicResource RaisedBrush}" Padding="15,9">
+            <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12">
+              <Path Data="{StaticResource StatsGeometry}" Stretch="Uniform" Width="19" Height="19" VerticalAlignment="Center"
+                    Stroke="{DynamicResource BlockerMuted}" StrokeThickness="1.5" StrokeLineCap="Round" />
+              <TextBlock x:Name="RelaySummary" Grid.Column="1" Foreground="{DynamicResource BlockerText}" FontSize="14"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              <Border x:Name="AdminBadge" Grid.Column="2" Classes="statusBadge blocked" Padding="10,7" />
+            </Grid>
+          </Border>
+        </Grid>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

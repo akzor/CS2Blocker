@@ -149,7 +149,7 @@ internal static class Ui
         ToolTip.SetTip(button, label);
         return button;
     }
-    public static CheckBox Checkbox(Control content, string label, bool selected = false)
+    public static CheckBox Checkbox(Control content, string label, bool selected = false, bool highlightSelection = false)
     {
         var checkbox = new CheckBox { Content = content, IsChecked = selected, MinHeight = 36, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, Cursor = new Cursor(StandardCursorType.Hand) };
         AutomationProperties.SetName(checkbox, label);
@@ -166,12 +166,13 @@ internal static class Ui
                 box.Background = control.IsChecked == true ? Accent : Surface;
                 box.BorderBrush = control.IsChecked == true || control.IsFocused ? Accent : Muted;
                 box.Child!.IsVisible = control.IsChecked == true;
-                root.Background = control.IsPointerOver ? Hover : Brushes.Transparent;
-                root.Opacity = control.IsEnabled ? 1 : .5;
+                root.Background = highlightSelection && control.IsChecked == true ? Selection
+                    : control.IsPointerOver ? Hover : Brushes.Transparent;
+                root.Opacity = control.IsEnabled ? control.IsPressed ? .75 : 1 : .5;
             }
             control.PropertyChanged += (_, e) =>
             {
-                if (e.Property == ToggleButton.IsCheckedProperty || e.Property == InputElement.IsPointerOverProperty || e.Property == InputElement.IsFocusedProperty || e.Property == InputElement.IsEnabledProperty) Update();
+                if (e.Property == ToggleButton.IsCheckedProperty || e.Property == ToggleButton.IsPressedProperty || e.Property == InputElement.IsPointerOverProperty || e.Property == InputElement.IsFocusedProperty || e.Property == InputElement.IsEnabledProperty) Update();
             };
             Update(); return root;
         });
