@@ -237,7 +237,7 @@ internal sealed partial class MainWindow : Window
         PropertyChanged += (_, e) =>
         {
             if (e.Property != WindowStateProperty) return;
-            maximize.Content = Ui.Icon(WindowState == WindowState.Maximized ? "copy" : "square", 17);
+            maximize.Content = Ui.Icon(WindowState == WindowState.Maximized ? "copy" : "square", 14);
             outer.CornerRadius = new CornerRadius(WindowState == WindowState.Maximized ? 0 : 18);
             if (WindowState == WindowState.Normal) FitToScreen();
             if (WindowState != WindowState.Minimized) return;
@@ -385,11 +385,12 @@ internal sealed partial class MainWindow : Window
     {
         if (_settingsWindow != null) { _settingsWindow.Activate(); return; }
         var dialog = new SettingsWindow();
+        if (_isAdmin) dialog.Height = 310;
         dialog.DataContext = new SettingsViewModel(_isAdmin, dialog.Close, RestartAsAdmin, CheckForUpdate);
-        if (Screens.ScreenFromWindow(this) is { } screen)
+        if ((Screens.ScreenFromWindow(this) ?? Screens.Primary) is { } screen)
         {
-            dialog.Width = Math.Min(dialog.Width, (screen.WorkingArea.Width - 8) / screen.Scaling);
-            dialog.MaxHeight = Math.Min(dialog.MaxHeight, (screen.WorkingArea.Height - 8) / screen.Scaling);
+            dialog.Width = Math.Min(dialog.Width, Math.Max(1, (screen.WorkingArea.Width - 8) / screen.Scaling));
+            dialog.Height = Math.Min(dialog.Height, Math.Max(1, (screen.WorkingArea.Height - 8) / screen.Scaling));
         }
         _settingsWindow = dialog;
         try { await dialog.ShowDialog(this); }

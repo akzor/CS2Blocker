@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="using:CS2Blocker"
         x:Class="CS2Blocker.SettingsWindow" x:DataType="local:SettingsViewModel" x:CompileBindings="True"
-        Title="Настройки CS2 Blocker" Width="520" MaxHeight="390" SizeToContent="Height" CanResize="False"
+        Title="Настройки CS2 Blocker" Width="520" Height="365" CanResize="False"
         WindowDecorations="None" TransparencyLevelHint="Transparent" Background="Transparent"
         WindowStartupLocation="CenterOwner" FontFamily="{DynamicResource BlockerFont}">
   <Window.Styles>
@@ -30,14 +30,14 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.settingsClose">
-      <Setter Property="Width" Value="36" />
-      <Setter Property="Height" Value="32" />
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="26" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="{DynamicResource BlockerText}" />
       <Setter Property="Template">
         <ControlTemplate>
           <Border x:Name="CloseBackground" Background="{TemplateBinding Background}" CornerRadius="7">
-            <Border Width="17" Height="17" Background="{TemplateBinding Foreground}"
+            <Border Width="14" Height="14" Background="{TemplateBinding Foreground}"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
               <Border.OpacityMask>
                 <ImageBrush Source="avares://CS2Blocker/Assets/icons/x.png" />
@@ -71,15 +71,16 @@
           BorderThickness="1" CornerRadius="14" ClipToBounds="True">
     <Grid RowDefinitions="44,*">
       <Border x:Name="TitleBar" Background="{DynamicResource BlockerSurface}">
-        <Grid ColumnDefinitions="36,*,36" Margin="10,0">
+        <Grid ColumnDefinitions="30,*,30" Margin="10,0">
           <TextBlock Grid.Column="1" Text="Настройки" Classes="settingsTitle"
                      HorizontalAlignment="Center" VerticalAlignment="Center" />
           <Button Grid.Column="2" Classes="settingsClose" Command="{Binding CloseWindow}"
                   AutomationProperties.Name="Закрыть настройки" ToolTip.Tip="Закрыть настройки" />
         </Grid>
       </Border>
-      <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" Padding="16">
-        <StackPanel Spacing="16">
+      <ScrollViewer x:Name="SettingsScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto" AllowAutoHide="False">
+        <StackPanel Spacing="16" Margin="16">
           <Border Classes="settingsCard">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
               <StackPanel Spacing="3" VerticalAlignment="Center">

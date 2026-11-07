@@ -231,7 +231,7 @@
             <Button x:Name="SettingsTab" Classes="mainAction nav" AutomationProperties.Name="Настройки" />
             <Button x:Name="JournalTab" Classes="mainAction nav" AutomationProperties.Name="Журнал" />
           </StackPanel>
-          <StackPanel x:Name="CaptionButtons" Grid.Column="2" Orientation="Horizontal" Spacing="6"
+          <StackPanel x:Name="CaptionButtons" Grid.Column="2" Orientation="Horizontal" Spacing="4"
                       HorizontalAlignment="Right" VerticalAlignment="Center" />
         </Grid>
       </Border>

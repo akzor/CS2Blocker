@@ -143,8 +143,8 @@ internal static class Ui
     public static Button CaptionButton(string icon, string label, Action action, bool danger = false)
     {
         var button = Button(label, null, danger: danger, flat: true);
-        button.Content = Icon(icon, 17, Text);
-        button.Width = 36; button.Height = 32; button.MinWidth = 0; button.Padding = new Thickness(0);
+        button.Content = Icon(icon, 14, Text);
+        button.Width = 30; button.Height = 26; button.MinWidth = 0; button.Padding = new Thickness(0);
         button.Click += (_, _) => action();
         ToolTip.SetTip(button, label);
         return button;
