@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="CS2Blocker.MainWindow"
-        Title="CS2 — Блокировщик серверов" Width="1254" Height="802"
+        Title="Valve Blocker" Width="1254" Height="802"
         WindowStartupLocation="CenterScreen" WindowDecorations="None"
         TransparencyLevelHint="Transparent" Background="Transparent"
         FontFamily="{DynamicResource BlockerFont}" UseLayoutRounding="True">
@@ -115,6 +115,16 @@
     <Style Selector="Button.mainAction.primary:pressed /template/ Border#ActionFrame">
       <Setter Property="Background" Value="#CC953F" />
     </Style>
+    <Style Selector="Button.mainAction.primary.blockAction">
+      <Setter Property="Background" Value="#D7A54F" />
+      <Setter Property="BorderBrush" Value="#D7A54F" />
+    </Style>
+    <Style Selector="Button.mainAction.primary.blockAction:pointerover /template/ Border#ActionFrame">
+      <Setter Property="Background" Value="#E0B05C" />
+    </Style>
+    <Style Selector="Button.mainAction.primary.blockAction:pressed /template/ Border#ActionFrame">
+      <Setter Property="Background" Value="#BD9045" />
+    </Style>
     <Style Selector="Button.mainAction.danger">
       <Setter Property="BorderBrush" Value="#573A38" />
       <Setter Property="Background" Value="#211D1D" />
@@ -139,6 +149,43 @@
     </Style>
     <Style Selector="Button.mainAction:disabled">
       <Setter Property="Opacity" Value="0.48" />
+    </Style>
+    <Style Selector="Button.mainAction.filterAction, Button.mainAction.repositoryLink">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.mainAction.filterAction">
+      <Setter Property="Height" Value="30" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="Margin" Value="3,0" />
+      <Setter Property="Padding" Value="5,0" />
+    </Style>
+    <Style Selector="Button.mainAction.repositoryLink">
+      <Setter Property="Height" Value="19" />
+      <Setter Property="Padding" Value="3,0" />
+    </Style>
+    <Style Selector="Button.mainAction.repositoryLink TextBlock">
+      <Setter Property="Foreground" Value="#7C8084" />
+    </Style>
+    <Style Selector="Button.mainAction.repositoryLink:pointerover TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource BlockerMuted}" />
+      <Setter Property="TextDecorations" Value="Underline" />
+    </Style>
+    <Style Selector="Button.mainAction.repositoryLink:pointerover /template/ Border#ActionFrame, Button.mainAction.repositoryLink:pressed /template/ Border#ActionFrame">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.mainAction.adminAction">
+      <Setter Property="Height" Value="34" />
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Background" Value="{DynamicResource SelectedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource GoldLineBrush}" />
+    </Style>
+    <Style Selector="Button.mainAction.adminAction:pointerover /template/ Border#ActionFrame">
+      <Setter Property="Background" Value="#403321" />
+    </Style>
+    <Style Selector="Button.mainAction.adminAction:pressed /template/ Border#ActionFrame">
+      <Setter Property="Background" Value="{DynamicResource SelectedBrush}" />
     </Style>
     <Style Selector="Border.relayRow">
       <Setter Property="Background" Value="{DynamicResource CanvasBrush}" />
@@ -214,9 +261,13 @@
       <Setter Property="PlaceholderForeground" Value="{DynamicResource BlockerMuted}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
+    <Style Selector="TextBox.searchInput:pointerover /template/ Border#PART_BorderElement, TextBox.searchInput:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
   </Window.Styles>
-  <Border x:Name="Shell" Background="{DynamicResource CanvasBrush}" BorderBrush="{DynamicResource LineBrush}"
-          BorderThickness="1" CornerRadius="15" ClipToBounds="True">
+  <Border x:Name="Shell" Background="{DynamicResource CanvasBrush}"
+          CornerRadius="15" ClipToBounds="True">
     <Grid RowDefinitions="Auto,Auto,*">
       <Border x:Name="TitleBar" Classes="mainTitle" Background="{DynamicResource CanvasBrush}" BorderBrush="{DynamicResource LineBrush}"
               BorderThickness="0,0,0,1">
@@ -256,13 +307,13 @@
           <Grid Classes="sideContent" RowDefinitions="Auto,38,Auto,Auto,*,Auto">
             <StackPanel Spacing="9">
               <ContentControl x:Name="SidebarTitle" HorizontalContentAlignment="Center" />
-              <TextBlock x:Name="SidebarDescription" Text="Управление блокировками серверов Valve по странам и локациям."
+              <TextBlock x:Name="SidebarDescription" Text="Выберите страны для автоблокировки реле Valve."
                          Foreground="{DynamicResource BlockerMuted}" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" />
             </StackPanel>
             <Border Grid.Row="1" Classes="searchField">
               <Grid ColumnDefinitions="34,*">
                 <ContentControl Classes="searchGlyph" />
-                <TextBox x:Name="CountrySearch" Grid.Column="1" Classes="searchInput" PlaceholderText="Поиск страны…"
+                <TextBox x:Name="CountrySearch" Grid.Column="1" Classes="searchInput" PlaceholderText="Поиск страны"
                          AutomationProperties.Name="Поиск страны" />
               </Grid>
             </Border>
@@ -285,7 +336,7 @@
                     VerticalAlignment="Top">
               <Grid ColumnDefinitions="34,*">
                 <ContentControl Classes="searchGlyph" />
-                <TextBox x:Name="LocationSearch" Grid.Column="1" Classes="searchInput" PlaceholderText="Поиск локации / IP…"
+                <TextBox x:Name="LocationSearch" Grid.Column="1" Classes="searchInput" PlaceholderText="Поиск локации или IP"
                          AutomationProperties.Name="Поиск локации или IP" />
               </Grid>
             </Border>
@@ -310,11 +361,19 @@
                     Stroke="{DynamicResource BlockerMuted}" StrokeThickness="1.5" StrokeLineCap="Round" />
               <TextBlock x:Name="RelaySummary" Grid.Column="1" Foreground="{DynamicResource BlockerText}" FontSize="14"
                          VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-              <Border x:Name="AdminBadge" Grid.Column="2" Classes="statusBadge blocked" Padding="10,7" />
+              <StackPanel Grid.Column="2" Spacing="2">
+                <ContentControl x:Name="AdminBadge" />
+                <Button x:Name="RepositoryLink" Classes="mainAction repositoryLink" HorizontalAlignment="Right"
+                        AutomationProperties.Name="Открыть репозиторий Valve Blocker на GitHub">
+                  <TextBlock Text="github.com/akzor/CS2Blocker" FontSize="11" />
+                </Button>
+              </StackPanel>
             </Grid>
           </Border>
         </Grid>
       </Grid>
+      <Border x:Name="ShellOutline" Grid.RowSpan="3" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
+              CornerRadius="{Binding CornerRadius, ElementName=Shell}" IsHitTestVisible="False" />
     </Grid>
   </Border>
 </Window>

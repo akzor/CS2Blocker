@@ -8,18 +8,24 @@ internal sealed class SettingsViewModel : INotifyPropertyChanged
     private readonly Action _close;
     private readonly Func<Action<string>, Task> _restart;
     private readonly Func<Action<string>, Task> _check;
+    private readonly Action<bool> _setCloseToTray;
     private bool _startupEnabled;
+    private bool _closeToTray;
     private bool _busy;
-    private string _startupDetail = "Автоматически запускать приложение в трее";
+    private string _startupDetail = "Приложение запустится в трее";
+    private string _closeToTrayDetail = "Проверка серверов продолжится в трее";
     private string _adminFeedback = "";
     private string _updateStatus = "Автопроверка раз в 15 минут";
 
-    public SettingsViewModel(bool isAdmin, Action close, Func<Action<string>, Task> restart, Func<Action<string>, Task> check)
+    public SettingsViewModel(bool isAdmin, Action close, Func<Action<string>, Task> restart, Func<Action<string>, Task> check,
+        bool closeToTray, Action<bool> setCloseToTray)
     {
         NeedsAdmin = !isAdmin;
         _close = close;
         _restart = restart;
         _check = check;
+        _closeToTray = closeToTray;
+        _setCloseToTray = setCloseToTray;
         try { _startupEnabled = DesktopIntegration.StartupEnabled; }
         catch (Exception ex)
         {
@@ -30,14 +36,15 @@ internal sealed class SettingsViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public bool NeedsAdmin { get; }
-    public string AdminStatus => NeedsAdmin ? "Не активны" : "Активны";
+    public string AdminStatus => NeedsAdmin ? "Нет прав" : "Есть права";
     public bool StartupAvailable { get; } = true;
     public string StartupDetail => _startupDetail;
+    public string CloseToTrayDetail => _closeToTrayDetail;
     public string AdminFeedback => _adminFeedback;
     public bool HasAdminFeedback => _adminFeedback.Length > 0;
     public string VersionLabel => $"Обновления · v{AppUpdate.CurrentVersion}";
     public bool CanUpdate => AppUpdate.IsSupported;
-    public string UpdateStatus => CanUpdate ? _updateStatus : "Доступно в сборке из GitHub Releases";
+    public string UpdateStatus => CanUpdate ? _updateStatus : "Для проверки нужна сборка из релиза GitHub";
     public bool Busy => _busy;
 
     public bool StartupEnabled
@@ -58,6 +65,24 @@ internal sealed class SettingsViewModel : INotifyPropertyChanged
             }
             Notify();
             Notify(nameof(StartupDetail));
+        }
+    }
+
+    public bool CloseToTray
+    {
+        get => _closeToTray;
+        set
+        {
+            if (_closeToTray == value) return;
+            try
+            {
+                _setCloseToTray(value);
+                _closeToTray = value;
+                _closeToTrayDetail = "Проверка серверов продолжится в трее";
+            }
+            catch (Exception ex) { _closeToTrayDetail = "Не удалось сохранить настройку. " + ex.Message; }
+            Notify();
+            Notify(nameof(CloseToTrayDetail));
         }
     }
 

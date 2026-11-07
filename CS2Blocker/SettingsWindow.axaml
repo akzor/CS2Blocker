@@ -2,9 +2,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="using:CS2Blocker"
         x:Class="CS2Blocker.SettingsWindow" x:DataType="local:SettingsViewModel" x:CompileBindings="True"
-        Title="Настройки CS2 Blocker" Width="520" Height="365" CanResize="False"
-        WindowDecorations="None" TransparencyLevelHint="Transparent" Background="Transparent"
-        WindowStartupLocation="CenterOwner" FontFamily="{DynamicResource BlockerFont}">
+        Title="Настройки Valve Blocker" Width="520" Height="425" CanResize="False"
+        WindowDecorations="None" Background="{DynamicResource BlockerBackground}"
+        WindowStartupLocation="CenterOwner" FontFamily="{DynamicResource BlockerFont}" UseLayoutRounding="True">
   <Window.Styles>
     <Style Selector="Border.settingsCard">
       <Setter Property="Background" Value="{DynamicResource BlockerSurface}" />
@@ -44,7 +44,7 @@
     </Style>
   </Window.Styles>
   <Border Background="{DynamicResource BlockerBackground}" BorderBrush="{DynamicResource BlockerBorder}"
-          BorderThickness="1" CornerRadius="14" ClipToBounds="True">
+          BorderThickness="1" ClipToBounds="True">
     <Grid RowDefinitions="44,*">
       <Border x:Name="TitleBar" Background="{DynamicResource BlockerSurface}">
         <Grid ColumnDefinitions="30,*,30" Margin="10,0">
@@ -57,16 +57,28 @@
                     VerticalScrollBarVisibility="Auto" AllowAutoHide="False">
         <StackPanel Spacing="16" Margin="16">
           <Border Classes="settingsCard">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-              <StackPanel Spacing="3" VerticalAlignment="Center">
-                <TextBlock Text="Запуск вместе с Windows" Classes="settingsTitle" />
-                <TextBlock Text="{Binding StartupDetail}" Classes="settingsDetail" />
-              </StackPanel>
-              <ToggleSwitch Grid.Column="1" IsChecked="{Binding StartupEnabled, Mode=TwoWay}"
-                            IsEnabled="{Binding StartupAvailable}" OnContent="" OffContent=""
-                            MinWidth="0" VerticalAlignment="Center" Cursor="Hand"
-                            AutomationProperties.Name="Запуск вместе с Windows" />
-            </Grid>
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel Spacing="3" VerticalAlignment="Center">
+                  <TextBlock Text="Запуск вместе с Windows" Classes="settingsTitle" />
+                  <TextBlock Text="{Binding StartupDetail}" Classes="settingsDetail" />
+                </StackPanel>
+                <ToggleSwitch Grid.Column="1" IsChecked="{Binding StartupEnabled, Mode=TwoWay}"
+                              IsEnabled="{Binding StartupAvailable}" OnContent="" OffContent=""
+                              MinWidth="0" VerticalAlignment="Center" Cursor="Hand"
+                              AutomationProperties.Name="Запуск вместе с Windows" />
+              </Grid>
+              <Border Height="1" Background="{DynamicResource BlockerBorder}" />
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel Spacing="3" VerticalAlignment="Center">
+                  <TextBlock Text="При закрытии сворачивать в трей" Classes="settingsTitle" />
+                  <TextBlock Text="{Binding CloseToTrayDetail}" Classes="settingsDetail" />
+                </StackPanel>
+                <ToggleSwitch Grid.Column="1" IsChecked="{Binding CloseToTray, Mode=TwoWay}"
+                              OnContent="" OffContent="" MinWidth="0" VerticalAlignment="Center" Cursor="Hand"
+                              AutomationProperties.Name="При закрытии сворачивать в трей" />
+              </Grid>
+            </StackPanel>
           </Border>
           <Border Classes="settingsCard">
             <StackPanel Spacing="10">

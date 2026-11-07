@@ -64,7 +64,7 @@ internal sealed class BlockerApp : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = AlreadyRunning
-                ? Ui.MessageWindow("Приложение уже запущено. Откройте его из трея.\nДля запуска от администратора сначала закройте текущую копию.")
+                ? Ui.MessageWindow("Приложение уже запущено. Откройте его из трея.\nЧтобы запустить другую копию, выберите «Выход» в меню трея.")
                 : new MainWindow();
         }
         base.OnFrameworkInitializationCompleted();

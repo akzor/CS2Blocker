@@ -17,9 +17,13 @@ namespace CS2Blocker;
 
 internal sealed partial class MainWindow : Window
 {
+    private enum RelayStatus { Available, Blocked, Pending, Unknown, NoAddresses }
+
+    private const string RepositoryUrl = "https://github.com/akzor/CS2Blocker";
     private const string WideColumns = "48,1.36*,1.02*,46,112,1.05*";
     private const string CompactColumns = "34,1.4*,1.16*,28,50,1.16*";
     private string _columns = WideColumns;
+    private RelayStatus? _relayStatusFilter;
     private static readonly System.Net.Http.HttpClient CatalogClient = new() { Timeout = TimeSpan.FromSeconds(15) };
     private readonly bool _isAdmin = Firewall.IsAdmin();
     private readonly StackPanel _countries;
@@ -39,6 +43,7 @@ internal sealed partial class MainWindow : Window
     private readonly Button _allCountries = MainButton("Все страны");
     private readonly Button _noCountries = MainButton("Снять выбор");
     private readonly Button _applyCountries = MainButton("Применить", "check", primary: true);
+    private readonly Button? _adminButton;
     private Button _pingButton = null!;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMinutes(1) };
     private readonly TrayIcon _tray;
@@ -50,6 +55,7 @@ internal sealed partial class MainWindow : Window
     private CancellationTokenSource? _pingCancellation;
     private bool _busy, _populatingCountries, _updatingSelection, _policyPending, _refreshPending;
     private bool _closingForRestart;
+    private bool _exitRequested;
     private bool _updateInProgress;
     private bool _compactSummary;
     private Window? _settingsWindow;
@@ -59,13 +65,13 @@ internal sealed partial class MainWindow : Window
     public MainWindow()
     {
         AvaloniaXamlLoader.Load(this);
-        using (var stream = Ui.Asset("cs2.ico")) Icon = new WindowIcon(stream);
+        using (var stream = Ui.Asset("valve-blocker.ico")) Icon = new WindowIcon(stream);
         T Part<T>(string name) where T : Control => this.FindControl<T>(name)!;
 
         var outer = Part<Border>("Shell");
         var titleBar = Part<Border>("TitleBar");
         Ui.AttachWindowDrag(this, titleBar);
-        Part<ContentControl>("BrandIcon").Content = Ui.AppIcon(32);
+        Part<ContentControl>("BrandIcon").Content = Ui.PngIcon("valve-blocker.png", 32);
         var brandName = Part<TextBlock>("BrandName");
         var autoTab = Part<Button>("AutoTab");
         var settings = Part<Button>("SettingsTab");
@@ -166,12 +172,35 @@ internal sealed partial class MainWindow : Window
         autoTab.Click += (_, _) => _locationSearch.Focus();
         _noRelays = Part<TextBlock>("NoRelays");
         _summary = Part<TextBlock>("RelaySummary");
-        var adminBadge = Part<Border>("AdminBadge");
-        adminBadge.Classes.Set("blocked", !_isAdmin);
+        var adminBadge = Part<ContentControl>("AdminBadge");
+        var repository = Part<Button>("RepositoryLink");
+        ToolTip.SetTip(repository, RepositoryUrl);
+        repository.Click += (_, _) =>
+        {
+            try { using var browser = Process.Start(new ProcessStartInfo(RepositoryUrl) { UseShellExecute = true }); }
+            catch (Exception ex) { SetStatus("Не удалось открыть GitHub. " + ex.Message, true); }
+        };
         string permission = _isAdmin ? "Права администратора активны" : "Нужны права администратора";
         var adminLabel = Ui.Label(permission, 13, _isAdmin ? Ui.Text : Ui.Accent);
-        adminBadge.Child = ButtonContent(adminLabel, Ui.Icon("shield", 17, _isAdmin ? Ui.Muted : Ui.Accent));
-        ToolTip.SetTip(adminBadge, permission);
+        var adminContent = ButtonContent(adminLabel, Ui.PngIcon("icons/windows-uac.png", 18));
+        if (_isAdmin)
+        {
+            adminBadge.Content = new Border { Child = adminContent, Classes = { "statusBadge" }, Padding = new Thickness(10, 7) };
+            ToolTip.SetTip(adminBadge, permission);
+        }
+        else
+        {
+            const string restart = "Перезапустить от администратора";
+            _adminButton = new Button { Content = adminContent, Classes = { "mainAction", "adminAction" } };
+            AutomationProperties.SetName(_adminButton, restart);
+            ToolTip.SetTip(_adminButton, restart);
+            _adminButton.Click += async (_, _) =>
+            {
+                try { await RestartAsAdmin(message => SetStatus(message)); }
+                catch (Exception ex) { SetStatus("Не удалось перезапустить приложение. " + ex.Message, true); }
+            };
+            adminBadge.Content = _adminButton;
+        }
         var searchFrame = Part<Border>("LocationSearchFrame");
         var toolbar = Part<Grid>("Toolbar");
         _rows = Part<StackPanel>("RelayRows");
@@ -214,23 +243,23 @@ internal sealed partial class MainWindow : Window
         };
         _selectAll.IsCheckedChanged += (_, _) => { _updatingSelection = true; headerCheck.IsChecked = _selectAll.IsChecked; _updatingSelection = false; };
         Ui.Put(tableHead, headerCheck);
-        string[] headings = { "Локация", "Страна", "IP", "Пинг", "Статус" };
+        string[] headings = { "Локация", "Страна", "IP", "Пинг" };
         for (int i = 0; i < headings.Length; i++)
         {
             var label = Ui.Label(headings[i], 13, Ui.Muted);
             label.TextAlignment = TextAlignment.Center;
             Ui.Put(tableHead, label, i + 1);
         }
+        Ui.Put(tableHead, CreateStatusFilter(), 5);
         Part<ContentControl>("TableHeaderHost").Content = tableHead;
         FitToScreen();
         Screens.Changed += ScreenChanged;
 
         var menu = new NativeMenu();
         var open = new NativeMenuItem("Открыть приложение"); open.Click += (_, _) => Dispatcher.UIThread.Post(RestoreWindow);
-        var exit = new NativeMenuItem("Выход"); exit.Click += (_, _) => Dispatcher.UIThread.Post(Close);
+        var exit = new NativeMenuItem("Выход"); exit.Click += (_, _) => Dispatcher.UIThread.Post(ExitApplication);
         menu.Items.Add(open); menu.Items.Add(exit);
-        using var icon = Ui.Asset("cs2.ico");
-        _tray = new TrayIcon { Icon = new WindowIcon(icon), ToolTipText = Title, Menu = menu, IsVisible = false };
+        _tray = new TrayIcon { Icon = Icon, ToolTipText = Title, Menu = menu, IsVisible = false };
         _tray.Clicked += (_, _) => Dispatcher.UIThread.Post(RestoreWindow);
         _trayIcons = TrayIcon.GetIcons(Application.Current!) ?? new TrayIcons();
         TrayIcon.SetIcons(Application.Current!, _trayIcons); _trayIcons.Add(_tray);
@@ -238,7 +267,7 @@ internal sealed partial class MainWindow : Window
         {
             if (e.Property != WindowStateProperty) return;
             maximize.Content = Ui.Icon(WindowState == WindowState.Maximized ? "copy" : "square", 14);
-            outer.CornerRadius = new CornerRadius(WindowState == WindowState.Maximized ? 0 : 18);
+            outer.CornerRadius = new CornerRadius(WindowState == WindowState.Maximized ? 0 : 15);
             if (WindowState == WindowState.Normal) FitToScreen();
             if (WindowState != WindowState.Minimized) return;
             if (_tray.NativeMenuExporter == null) { WindowState = WindowState.Normal; SetStatus("Системный трей недоступен.", true); return; }
@@ -246,7 +275,14 @@ internal sealed partial class MainWindow : Window
         };
         Closing += (_, e) =>
         {
-            if (_closingForRestart || !_busy || e.CloseReason is WindowCloseReason.OSShutdown or WindowCloseReason.ApplicationShutdown) return;
+            if (_closingForRestart || e.CloseReason is WindowCloseReason.OSShutdown or WindowCloseReason.ApplicationShutdown) return;
+            if (!_exitRequested && _settings.CloseToTray && _tray.NativeMenuExporter != null)
+            {
+                e.Cancel = true;
+                Dispatcher.UIThread.Post(() => WindowState = WindowState.Minimized);
+                return;
+            }
+            if (!_busy) return;
             e.Cancel = true; _pingCancellation?.Cancel(); SetStatus("Дождитесь завершения операции перед выходом.");
         };
         Closed += (_, _) => { _updateCancellation.Cancel(); Screens.Changed -= ScreenChanged; _timer.Stop(); _trayIcons.Remove(_tray); _tray.Dispose(); };
@@ -285,7 +321,7 @@ internal sealed partial class MainWindow : Window
         {
             _busy = false;
             await Ui.MessageWindow($"Не удалось прочитать настройки. Файл не изменён.\n{ex.Message}").ShowDialog<bool>(this);
-            Close(); return;
+            ExitApplication(); return;
         }
         finally { _busy = false; SetEnabled(true); }
         _countryDraft.UnionWith(_settings.BlockedCountries);
@@ -385,8 +421,9 @@ internal sealed partial class MainWindow : Window
     {
         if (_settingsWindow != null) { _settingsWindow.Activate(); return; }
         var dialog = new SettingsWindow();
-        if (_isAdmin) dialog.Height = 310;
-        dialog.DataContext = new SettingsViewModel(_isAdmin, dialog.Close, RestartAsAdmin, CheckForUpdate);
+        if (_isAdmin) dialog.Height = 370;
+        dialog.DataContext = new SettingsViewModel(_isAdmin, dialog.Close, RestartAsAdmin, CheckForUpdate,
+            _settings.CloseToTray, SetCloseToTray);
         if ((Screens.ScreenFromWindow(this) ?? Screens.Primary) is { } screen)
         {
             dialog.Width = Math.Min(dialog.Width, Math.Max(1, (screen.WorkingArea.Width - 8) / screen.Scaling));
@@ -395,6 +432,15 @@ internal sealed partial class MainWindow : Window
         _settingsWindow = dialog;
         try { await dialog.ShowDialog(this); }
         finally { _settingsWindow = null; }
+    }
+
+    private void SetCloseToTray(bool enabled)
+    {
+        if (_busy) throw new InvalidOperationException("Дождитесь завершения текущей операции.");
+        bool previous = _settings.CloseToTray;
+        _settings.CloseToTray = enabled;
+        try { _settings.Save(); }
+        catch { _settings.CloseToTray = previous; throw; }
     }
 
     private async Task RestartAsAdmin(Action<string> feedback)
@@ -440,6 +486,7 @@ internal sealed partial class MainWindow : Window
     {
         var button = MainButton(text, icon, primary);
         button.Classes.Add("relayAction");
+        button.Classes.Set("blockAction", primary);
         button.Tag = admin; button.IsEnabled = !admin || _isAdmin;
         button.Margin = new Thickness(0, 0, 8, 4);
         button.Click += async (_, _) => await Operate(action);
@@ -463,6 +510,7 @@ internal sealed partial class MainWindow : Window
 
     private void SetEnabled(bool enabled)
     {
+        if (_adminButton != null) _adminButton.IsEnabled = enabled;
         foreach (Control control in _actions.Children)
             if (control != _stop) control.IsEnabled = enabled && (!(control.Tag is true) || _isAdmin);
         _countries.IsEnabled = enabled && _isAdmin; _rows.IsEnabled = enabled; _clear.IsEnabled = enabled && _isAdmin;
@@ -485,7 +533,7 @@ internal sealed partial class MainWindow : Window
         await Task.Run(_settings.Save);
         _refreshPending = false;
         await ApplyPolicy();
-        SetStatus($"Список Valve обновлён · новых точек: {added}." + (!_isAdmin ? " Для блокировки нужны права администратора." : ""));
+        SetStatus($"Список Valve обновлён ({added} новых локаций)." + (!_isAdmin ? " Для блокировки нужны права администратора." : ""));
     }
 
     private async Task ApplyPolicy()
@@ -645,6 +693,8 @@ internal sealed partial class MainWindow : Window
         string query = _locationSearch.Text?.Trim() ?? "";
         foreach (var server in _servers)
         {
+            var status = GetRelayStatus(server);
+            if (_relayStatusFilter is { } selected && selected != status) continue;
             string countryName = ServerCatalog.CountryName(server.Country);
             if (!server.Description.Contains(query, StringComparison.CurrentCultureIgnoreCase) &&
                 !server.Code.Contains(query, StringComparison.OrdinalIgnoreCase) &&
@@ -672,9 +722,9 @@ internal sealed partial class MainWindow : Window
             ToolTip.SetTip(country, countryName); Ui.Put(grid, country, 2);
             var addressCount = Ui.Label(server.Addresses.Count.ToString(), 14);
             addressCount.TextAlignment = TextAlignment.Center; Ui.Put(grid, addressCount, 3);
-            var ping = Ui.Label(server.PingMs == -2 ? "—" : server.PingMs < 0 ? "Таймаут" : $"{server.PingMs} мс", 13);
+            var ping = Ui.Label(server.PingMs == -2 ? "-" : server.PingMs < 0 ? "Таймаут" : $"{server.PingMs} мс", 13);
             ping.TextAlignment = TextAlignment.Center; Ui.Put(grid, ping, 4);
-            Ui.Put(grid, StatusBadge(server), 5);
+            Ui.Put(grid, StatusBadge(server, status), 5);
             border.DoubleTapped += async (_, e) =>
             {
                 if (_busy || !_isAdmin || e.Source is Visual visual && (visual is CheckBox || visual.GetVisualAncestors().Any(p => p is CheckBox))) return;
@@ -682,15 +732,62 @@ internal sealed partial class MainWindow : Window
             };
             _rows.Children.Add(border);
         }
-        _noRelays.IsVisible = query.Length > 0 && _rows.Children.Count == 0;
+        _noRelays.IsVisible = (query.Length > 0 || _relayStatusFilter != null) && _rows.Children.Count == 0;
         _rowScroll.Offset = offset; UpdateSummary();
     }
 
-    private Control StatusBadge(ServerEntry server)
+    private Button CreateStatusFilter()
     {
-        bool automatic = _settings.BlockedCountries.Contains(server.Country), blocked = server.FirewallKnown && server.Blocked;
-        string text = server.Addresses.Count == 0 ? "Нет IP от Valve" : !server.FirewallKnown ? "Не проверен" : blocked ? automatic ? "Авто · блок" : "Заблокирован" : automatic ? "Ожидает блокировки" : "Доступен";
-        bool unknown = server.Addresses.Count == 0 || !server.FirewallKnown;
+        var label = Ui.Label("Статус", 13, Ui.Muted);
+        label.TextAlignment = TextAlignment.Center;
+        var content = Ui.Grid("14,*"); content.ColumnSpacing = 5;
+        Ui.Put(content, Ui.Icon("adjustments-horizontal", 14, Ui.Muted)); Ui.Put(content, label, 1);
+        var menu = new MenuFlyout();
+        var button = new Button { Classes = { "mainAction", "filterAction" }, Content = content, Flyout = menu,
+            HorizontalAlignment = HorizontalAlignment.Center };
+        AutomationProperties.SetName(button, "Фильтр по статусу");
+        ToolTip.SetTip(button, "Фильтр по статусу");
+        foreach (RelayStatus? status in new RelayStatus?[] { null }.Concat(Enum.GetValues<RelayStatus>().Select(value => (RelayStatus?)value)))
+        {
+            string text = status == null ? "Все статусы" : StatusText(status.Value);
+            var item = new MenuItem { Header = text, ToggleType = MenuItemToggleType.Radio, GroupName = "RelayStatus", IsChecked = status == null };
+            item.Click += (_, _) =>
+            {
+                foreach (var option in menu.Items.OfType<MenuItem>()) option.IsChecked = option == item;
+                _relayStatusFilter = status;
+                label.Text = status == null ? "Статус" : text;
+                label.Foreground = status == null ? Ui.Muted : Ui.Accent;
+                ToolTip.SetTip(button, $"Фильтр по статусу · {text}");
+                _rowScroll.Offset = default;
+                RenderRows();
+            };
+            menu.Items.Add(item);
+        }
+        return button;
+    }
+
+    private RelayStatus GetRelayStatus(ServerEntry server)
+    {
+        if (server.Addresses.Count == 0) return RelayStatus.NoAddresses;
+        if (!server.FirewallKnown) return RelayStatus.Unknown;
+        if (server.Blocked) return RelayStatus.Blocked;
+        return _settings.BlockedCountries.Contains(server.Country) ? RelayStatus.Pending : RelayStatus.Available;
+    }
+
+    private static string StatusText(RelayStatus status) => status switch
+    {
+        RelayStatus.Available => "Доступен",
+        RelayStatus.Blocked => "Заблокирован",
+        RelayStatus.Pending => "Ожидает блокировки",
+        RelayStatus.Unknown => "Не проверен",
+        _ => "Нет IP от Valve"
+    };
+
+    private Control StatusBadge(ServerEntry server, RelayStatus status)
+    {
+        bool blocked = status == RelayStatus.Blocked;
+        string text = blocked && _settings.BlockedCountries.Contains(server.Country) ? "Авто · блок" : StatusText(status);
+        bool unknown = status is RelayStatus.NoAddresses or RelayStatus.Unknown;
         var color = blocked ? Ui.Accent : unknown ? Ui.Muted : Ui.Text;
         var label = Ui.Label(text, 13, color); label.TextAlignment = TextAlignment.Center;
         label.ClearValue(TextBlock.FontSizeProperty);
@@ -726,6 +823,13 @@ internal sealed partial class MainWindow : Window
     }
     private void ToggleMaximize() => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void RestoreWindow() { Show(); WindowState = WindowState.Normal; _tray.IsVisible = false; Activate(); }
+
+    private void ExitApplication()
+    {
+        _exitRequested = true;
+        try { Close(); }
+        finally { _exitRequested = false; }
+    }
 
     private void ScreenChanged(object? sender, EventArgs e) => FitToScreen();
 

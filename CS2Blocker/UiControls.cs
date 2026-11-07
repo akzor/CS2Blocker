@@ -80,12 +80,16 @@ internal static class Ui
             Child = new Image { Source = Bitmap(path), Stretch = Stretch.UniformToFill }
         };
     }
-    public static Control AppIcon(double size = 28) => new Border
+    public static Control PngIcon(string path, double size)
     {
-        Width = size, Height = size, CornerRadius = new CornerRadius(5), ClipToBounds = true,
-        VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false,
-        Child = new Image { Source = Bitmap("cs2.png"), Stretch = Stretch.Uniform }
-    };
+        var image = new Image
+        {
+            Width = size, Height = size, Source = Bitmap(path), Stretch = Stretch.Uniform,
+            VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false
+        };
+        RenderOptions.SetBitmapInterpolationMode(image, BitmapInterpolationMode.HighQuality);
+        return image;
+    }
 
     public static void AttachWindowDrag(Window window, Border bar)
     {
@@ -180,13 +184,12 @@ internal static class Ui
                 box.Background = control.IsChecked == true ? Accent : Surface;
                 box.BorderBrush = control.IsChecked == true || control.IsFocused ? Accent : Muted;
                 box.Child!.IsVisible = control.IsChecked == true;
-                root.Background = highlightSelection && control.IsChecked == true ? Selection
-                    : control.IsPointerOver ? Hover : Brushes.Transparent;
+                root.Background = highlightSelection && control.IsChecked == true ? Selection : Brushes.Transparent;
                 root.Opacity = control.IsEnabled ? control.IsPressed ? .75 : 1 : .5;
             }
             control.PropertyChanged += (_, e) =>
             {
-                if (e.Property == ToggleButton.IsCheckedProperty || e.Property == ToggleButton.IsPressedProperty || e.Property == InputElement.IsPointerOverProperty || e.Property == InputElement.IsFocusedProperty || e.Property == InputElement.IsEnabledProperty) Update();
+                if (e.Property == ToggleButton.IsCheckedProperty || e.Property == ToggleButton.IsPressedProperty || e.Property == InputElement.IsFocusedProperty || e.Property == InputElement.IsEnabledProperty) Update();
             };
             Update(); return root;
         });
@@ -196,7 +199,7 @@ internal static class Ui
     {
         var window = new Window
         {
-            Title = "CS2 — Блокировщик серверов", Width = 500, Height = 240, CanResize = false,
+            Title = "Valve Blocker", Width = 500, Height = 240, CanResize = false,
             WindowDecorations = WindowDecorations.None, Background = Brushes.Transparent,
             TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent },
             WindowStartupLocation = WindowStartupLocation.CenterOwner

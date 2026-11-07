@@ -98,6 +98,7 @@ internal static class ServerCatalog
 
 internal sealed class AppSettings
 {
+    public bool CloseToTray { get; set; } = true;
     public HashSet<string> BlockedCountries { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public DateTimeOffset? LastRefreshUtc { get; set; }
     public string? CatalogJson { get; set; }

@@ -5,11 +5,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>CS2Blocker</AssemblyName>
-    <Version>0.2.2</Version>
-    <Product>CS2 Blocker</Product>
-    <Description>Country-based CS2 relay blocking for Windows.</Description>
+    <Version>0.2.3</Version>
+    <Product>Valve Blocker</Product>
+    <Description>Blocks CS2 relays by country on Windows.</Description>
     <RootNamespace>CS2Blocker</RootNamespace>
-    <ApplicationIcon>Assets\cs2.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\valve-blocker.ico</ApplicationIcon>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     
     <PublishSingleFile>true</PublishSingleFile>
