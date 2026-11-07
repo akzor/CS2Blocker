@@ -10,6 +10,8 @@
   <p><a href="https://github.com/akzor/CS2Blocker/releases/latest"><strong>Скачать для Windows</strong></a> · <a href="#быстрый-старт">Быстрый старт</a> · <a href="#сборка-из-исходников">Сборка</a></p>
 </div>
 
+![Интерфейс CS2 Blocker: выбор стран и список серверов](docs/screenshot.png)
+
 ---
 
 CS2 Blocker загружает список реле из API Valve и блокирует их IP через Windows Firewall. Можно выбрать страны целиком или отдельные локации.
