@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>CS2Blocker</AssemblyName>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Product>CS2 Blocker</Product>
     <Description>Country-based CS2 relay blocking for Windows.</Description>
     <RootNamespace>CS2Blocker</RootNamespace>

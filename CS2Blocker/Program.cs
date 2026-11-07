@@ -42,6 +42,15 @@ internal sealed class BlockerApp : Application
     {
         RequestedThemeVariant = ThemeVariant.Dark;
         Styles.Add(new FluentTheme());
+        Resources["BlockerFont"] = Ui.BodyFont;
+        Resources["BlockerBackground"] = Ui.Background;
+        Resources["BlockerSurface"] = Ui.Surface;
+        Resources["BlockerHover"] = Ui.Hover;
+        Resources["BlockerBorder"] = Ui.Border;
+        Resources["BlockerText"] = Ui.Text;
+        Resources["BlockerMuted"] = Ui.Muted;
+        Resources["BlockerAccent"] = Ui.Accent;
+        Resources["BlockerSelection"] = Ui.Selection;
         var text = new Style(x => x.OfType<TextBlock>());
         text.Setters.Add(new Setter(TextBlock.FontFamilyProperty, Ui.BodyFont));
         Styles.Add(text);

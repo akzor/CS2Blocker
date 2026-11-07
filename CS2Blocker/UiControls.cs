@@ -17,7 +17,7 @@ namespace CS2Blocker;
 
 internal static class Ui
 {
-    public static readonly FontFamily BodyFont = new("avares://CS2Blocker/Assets/fonts#IBM Plex Sans");
+    public static readonly FontFamily BodyFont = new("Segoe UI Variable, Segoe UI");
     public static readonly FontFamily MonoFont = new("avares://CS2Blocker/Assets/fonts#JetBrains Mono");
     public static readonly SolidColorBrush Background = Brush("#151719"), Surface = Brush("#1D2023"), Hover = Brush("#282B2E"),
         Border = Brush("#42464A"), Text = Brush("#EDECE7"), Muted = Brush("#A9AEB2"), Accent = Brush("#EDB54D"),
@@ -105,16 +105,18 @@ internal static class Ui
         Put(grid, Icon(name, 22, tint)); Put(grid, content, 1);
         return grid;
     }
-    public static Button Button(string title, string icon, bool primary = false, bool danger = false)
+    public static Button Button(string title, string? icon, bool primary = false, bool danger = false, bool flat = false)
     {
         var color = primary ? Background : danger ? Danger : Text;
+        var label = Label(title, 14, color);
+        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        if (icon != null) content.Children.Add(Icon(icon, 17, color));
+        content.Children.Add(label);
         var button = new Button
         {
-            Content = WithIcon(icon, Label(title, 15, color), color), Height = 44,
-            Padding = new Thickness(15, 0), CornerRadius = new CornerRadius(9),
-            Background = primary ? Accent : Background, Foreground = color,
-            BorderBrush = primary ? Accent : Border, BorderThickness = new Thickness(1),
-            Cursor = new Cursor(StandardCursorType.Hand), HorizontalContentAlignment = HorizontalAlignment.Center
+            Content = content, Height = 38, MinHeight = 0, Padding = new Thickness(12, 0),
+            CornerRadius = new CornerRadius(8), Cursor = new Cursor(StandardCursorType.Hand),
+            HorizontalContentAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
         };
         AutomationProperties.SetName(button, title);
         button.Template = new FuncControlTemplate<Button>((control, _) =>
@@ -123,9 +125,11 @@ internal static class Ui
             var border = new Border { CornerRadius = control.CornerRadius, BorderThickness = new Thickness(1), Child = presenter };
             void Update()
             {
-                border.Background = primary ? Accent : control.IsPointerOver ? danger ? Brush("#452325") : Hover : Background;
-                border.BorderBrush = control.IsFocused ? Accent : primary ? Accent : control.IsPointerOver ? Muted : Border;
+                border.Background = primary && control.IsEnabled ? Accent : primary ? Selection
+                    : control.IsPointerOver ? danger ? Brush("#452325") : Hover : flat ? Brushes.Transparent : Background;
+                border.BorderBrush = control.IsFocused ? Accent : flat ? Brushes.Transparent : primary ? Accent : Border;
                 border.Opacity = control.IsEnabled ? 1 : .45;
+                if (primary) label.Foreground = control.IsEnabled ? Background : Text;
             }
             control.PropertyChanged += (_, e) =>
             {
@@ -138,17 +142,16 @@ internal static class Ui
     }
     public static Button CaptionButton(string icon, string label, Action action, bool danger = false)
     {
-        var button = Button(label, icon, danger: danger);
-        button.Content = Icon(icon, 13, Text);
-        button.Width = 26; button.Height = 22; button.MinWidth = 0; button.MinHeight = 0;
-        button.CornerRadius = new CornerRadius(6); button.Padding = new Thickness(0);
+        var button = Button(label, null, danger: danger, flat: true);
+        button.Content = Icon(icon, 17, Text);
+        button.Width = 36; button.Height = 32; button.MinWidth = 0; button.Padding = new Thickness(0);
         button.Click += (_, _) => action();
         ToolTip.SetTip(button, label);
         return button;
     }
     public static CheckBox Checkbox(Control content, string label, bool selected = false)
     {
-        var checkbox = new CheckBox { Content = content, IsChecked = selected, MinHeight = 40, HorizontalContentAlignment = HorizontalAlignment.Stretch, Cursor = new Cursor(StandardCursorType.Hand) };
+        var checkbox = new CheckBox { Content = content, IsChecked = selected, MinHeight = 36, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, Cursor = new Cursor(StandardCursorType.Hand) };
         AutomationProperties.SetName(checkbox, label);
         checkbox.Template = new FuncControlTemplate<CheckBox>((control, _) =>
         {

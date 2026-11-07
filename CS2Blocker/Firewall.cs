@@ -1,14 +1,28 @@
-using System.Diagnostics;
+using System.Buffers.Binary;
+using System.Collections;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Text.RegularExpressions;
-using Newtonsoft.Json.Linq;
 
 namespace CS2Blocker;
 
 internal static class Firewall
 {
+    private const string Prefix = "CS2_Block_";
+    private const string AutoPrefix = Prefix + "Auto_";
+    private const int Inbound = 1, Outbound = 2, Block = 0;
+    private const int AnyProtocol = 256, AllProfiles = int.MaxValue;
+
+    internal readonly record struct AddressRange(uint First, uint Last)
+    {
+        public bool Contains(uint address) => address >= First && address <= Last;
+    }
+
+    private sealed record Rule(string Name, int Direction, int Action, bool Enabled, string Addresses, object Handle)
+    {
+        public List<AddressRange> Ranges { get; } = ParseRanges(Addresses);
+    }
+
     public static bool IsAdmin()
     {
         using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
@@ -20,116 +34,186 @@ internal static class Firewall
     {
         if (!Regex.IsMatch(server.Code, @"\A[A-Z0-9_]{1,32}\z") ||
             !Regex.IsMatch(server.Country, @"\A(?:[A-Z]{2})?\z") ||
+            server.Addresses.Count == 0 ||
             server.Addresses.Any(a => !IPAddress.TryParse(a, out var ip) ||
                 ip.AddressFamily != AddressFamily.InterNetwork || ip.ToString() != a))
             throw new ArgumentException("Некорректные данные правила фаервола.");
     }
 
-    internal static string RuleScript(ServerEntry server, bool automatic)
+    public static Task ApplyCountries(List<ServerEntry> servers, HashSet<string> countries) => Task.Run(() =>
     {
-        Validate(server);
-        if (server.Addresses.Count == 0) throw new ArgumentException("У точки нет IP-адресов.");
-        var script = new StringBuilder();
-        string prefix = automatic ? $"CS2_Block_Auto_{server.Country}_{server.Code}" : server.RuleName;
-        string ips = string.Join(",", server.Addresses.Select(ip => $"'{ip}'"));
-        foreach (string direction in new[] { "Inbound", "Outbound" })
+        RequireAdmin();
+        if (countries.Any(country => !Regex.IsMatch(country, @"\A[A-Z]{2}\z")))
+            throw new ArgumentException("Некорректная страна.");
+        var selected = servers.Where(s => countries.Contains(s.Country) && s.Addresses.Count > 0).ToList();
+        selected.ForEach(Validate);
+
+        dynamic rules = OpenRules();
+        List<Rule> existing = ReadRules(rules);
+        var byName = existing.ToLookup(rule => rule.Name, StringComparer.OrdinalIgnoreCase);
+        foreach (var server in selected)
+            Upsert(rules, byName, AutoPrefix + server.Country + "_" + server.Code, server.Addresses);
+        foreach (var rule in existing)
         {
-            string name = $"{prefix}_{direction}";
-            script.AppendLine($"$rule = Get-NetFirewallRule -Name '{name}' -ErrorAction SilentlyContinue");
-            script.AppendLine($"if ($rule) {{ $rule | Set-NetFirewallRule -Enabled True -Action Block; $rule | Get-NetFirewallAddressFilter | Set-NetFirewallAddressFilter -RemoteAddress @({ips}) }} else {{ New-NetFirewallRule -Name '{name}' -DisplayName '{name}' -Direction {direction} -Action Block -Enabled True -Profile Any -RemoteAddress @({ips}) | Out-Null }}");
+            var match = Regex.Match(rule.Name, @"\ACS2_Block_Auto_([A-Z]{2})_", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (match.Success && !countries.Contains(match.Groups[1].Value.ToUpperInvariant()))
+                rules.Remove(rule.Name);
         }
-        return script.ToString();
-    }
+    });
 
-    internal static string CountryScript(List<ServerEntry> servers, HashSet<string> countries)
+    public static Task SetManual(List<ServerEntry> servers, bool block) => Task.Run(() =>
     {
-        var selected = servers.Where(s => s.Country.Length > 0 && countries.Contains(s.Country) && s.Addresses.Count > 0).ToList();
-        var script = new StringBuilder();
-        foreach (var server in selected) script.AppendLine(RuleScript(server, true));
-        string keep = string.Join(",", countries.Order().Select(c =>
+        RequireAdmin();
+        servers.ForEach(Validate);
+        dynamic rules = OpenRules();
+        if (block)
         {
-            if (!Regex.IsMatch(c, @"\A[A-Z]{2}\z")) throw new ArgumentException("Некорректная страна.");
-            return $"'{c}'";
-        }));
-        script.AppendLine($"$countries = @({keep})");
-        script.AppendLine("Get-NetFirewallRule -Name 'CS2_Block_Auto_*' -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^CS2_Block_Auto_([A-Z]{2})_' -and $countries -notcontains $Matches[1] } | Remove-NetFirewallRule");
-        return script.ToString();
-    }
+            List<Rule> existing = ReadRules(rules);
+            var byName = existing.ToLookup(rule => rule.Name, StringComparer.OrdinalIgnoreCase);
+            foreach (var server in servers)
+                Upsert(rules, byName, server.RuleName, server.Addresses);
+            return;
+        }
 
-    public static Task ApplyCountries(List<ServerEntry> servers, HashSet<string> countries) => Run(CountryScript(servers, countries));
-
-    public static async Task SetManual(List<ServerEntry> servers, bool block)
-    {
-        var script = new StringBuilder();
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var server in servers)
         {
-            Validate(server);
-            if (block) script.AppendLine(RuleScript(server, false));
-            else script.AppendLine($"Get-NetFirewallRule -DisplayName '{server.RuleName}' , '{server.RuleName}_Inbound' , '{server.RuleName}_Outbound' -ErrorAction SilentlyContinue | Remove-NetFirewallRule");
+            names.Add(server.RuleName);
+            names.Add(server.RuleName + "_Inbound");
+            names.Add(server.RuleName + "_Outbound");
         }
-        if (script.Length > 0) await Run(script.ToString());
-    }
+        foreach (var rule in ReadRules(rules))
+            if (names.Contains(rule.Name)) rules.Remove(rule.Name);
+    });
 
-    public static Task Clear() => Run("Get-NetFirewallRule | Where-Object { $_.DisplayName -like 'CS2_Block_*' } | Remove-NetFirewallRule");
+    public static Task Clear() => Task.Run(() =>
+    {
+        RequireAdmin();
+        dynamic rules = OpenRules();
+        foreach (var rule in ReadRules(rules)) rules.Remove(rule.Name);
+        if (ReadRules(rules).Count != 0)
+            throw new InvalidOperationException("Остались правила CS2_Block_*.");
+    });
 
     public static async Task Sync(List<ServerEntry> servers)
     {
-        string json = await Run("@(Get-NetFirewallRule | Where-Object { $_.DisplayName -like 'CS2_Block_*' -and $_.Enabled -eq 'True' -and $_.Action -eq 'Block' } | ForEach-Object { [pscustomobject]@{ DisplayName=$_.DisplayName; Direction=[int]$_.Direction; Addresses=@(($_ | Get-NetFirewallAddressFilter).RemoteAddress) } }) | ConvertTo-Json -Depth 4 -Compress", requiresAdmin: false);
-        SetStates(servers, json);
-    }
-
-    internal static void SetStates(List<ServerEntry> servers, string json)
-    {
-        var rules = string.IsNullOrWhiteSpace(json) ? new JArray() : JToken.Parse(json) is JArray array ? array : new JArray(JToken.Parse(json));
+        var snapshot = await Task.Run(() =>
+        {
+            List<Rule> rules = ReadRules(OpenRules());
+            return rules.Where(rule => rule.Enabled && rule.Action == Block)
+                .ToLookup(rule => rule.Name, StringComparer.OrdinalIgnoreCase);
+        });
         foreach (var server in servers)
         {
-            bool Has(string direction) => server.Addresses.All(ip => rules.Any(r =>
-                r["Direction"]?.ToString() == direction &&
-                new[] { server.RuleName, $"{server.RuleName}_{(direction == "1" ? "Inbound" : "Outbound")}",
-                    $"CS2_Block_Auto_{server.Country}_{server.Code}_{(direction == "1" ? "Inbound" : "Outbound")}" }.Contains(r["DisplayName"]?.ToString()) &&
-                r["Addresses"] is JArray addresses && addresses.Any(a => a.ToString() == ip || a.ToString() is "Any" or "*")));
-            server.Blocked = server.Addresses.Count > 0 && Has("1") && Has("2");
+            string auto = AutoPrefix + server.Country + "_" + server.Code;
+            bool Covers(int direction, string suffix)
+            {
+                var ranges = snapshot[server.RuleName].Concat(snapshot[server.RuleName + suffix])
+                    .Concat(snapshot[auto + suffix]).Where(rule => rule.Direction == direction)
+                    .SelectMany(rule => rule.Ranges).ToArray();
+                return server.Addresses.All(ip => TryIPv4(ip, out uint address) && ranges.Any(range => range.Contains(address)));
+            }
+            server.Blocked = server.Addresses.Count > 0 && Covers(Inbound, "_Inbound") && Covers(Outbound, "_Outbound");
             server.FirewallKnown = true;
         }
     }
 
-    private static async Task<string> Run(string script, bool requiresAdmin = true)
+    private static object OpenRules()
     {
-        if (requiresAdmin && !IsAdmin()) throw new InvalidOperationException("Для изменения фаервола запустите приложение от администратора.");
-        var start = new ProcessStartInfo("powershell.exe")
+        dynamic policy = CreateCom("HNetCfg.FwPolicy2");
+        return policy.Rules;
+    }
+
+    private static object CreateCom(string progId)
+    {
+        var type = Type.GetTypeFromProgID(progId) ?? throw new InvalidOperationException("Windows Firewall недоступен.");
+        return Activator.CreateInstance(type) ?? throw new InvalidOperationException("Windows Firewall недоступен.");
+    }
+
+    private static List<Rule> ReadRules(object rules)
+    {
+        var result = new List<Rule>();
+        foreach (dynamic entry in (IEnumerable)rules)
         {
-            UseShellExecute = false, CreateNoWindow = true,
-            RedirectStandardOutput = true, RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8
-        };
-        start.ArgumentList.Add("-NoProfile");
-        start.ArgumentList.Add("-NonInteractive");
-        string path = Path.Combine(Path.GetTempPath(), $"cs2_{Guid.NewGuid():N}.ps1");
-        try
-        {
-            await File.WriteAllTextAsync(path,
-                "$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.Encoding]::UTF8; try {\n" + script + "\n} catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }",
-                new UTF8Encoding(true));
-            start.ArgumentList.Add("-ExecutionPolicy");
-            start.ArgumentList.Add("Bypass");
-            start.ArgumentList.Add("-File");
-            start.ArgumentList.Add(path);
-            using var process = Process.Start(start) ?? throw new InvalidOperationException("Не удалось запустить PowerShell.");
-            var output = process.StandardOutput.ReadToEndAsync();
-            var error = process.StandardError.ReadToEndAsync();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-            try { await process.WaitForExitAsync(timeout.Token); }
-            catch (OperationCanceledException)
-            {
-                process.Kill(true);
-                await process.WaitForExitAsync();
-                throw new TimeoutException("Фаервол не ответил за 2 минуты. Проверьте правила перед повтором.");
-            }
-            string result = await output;
-            string failure = await error;
-            if (process.ExitCode != 0) throw new InvalidOperationException("Ошибка фаервола: " + failure.Trim());
-            return result;
+            string name = entry.Name;
+            if (!name.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)) continue;
+            result.Add(new Rule(name, (int)entry.Direction, (int)entry.Action, (bool)entry.Enabled,
+                (string)entry.RemoteAddresses, (object)entry));
         }
-        finally { File.Delete(path); }
+        return result;
+    }
+
+    private static void Upsert(object collection, ILookup<string, Rule> existing, string name, List<string> addresses)
+    {
+        dynamic rules = collection;
+        string remote = string.Join(",", addresses);
+        foreach (var (direction, suffix) in new[] { (Inbound, "_Inbound"), (Outbound, "_Outbound") })
+        {
+            string ruleName = name + suffix;
+            var matches = existing[ruleName].ToArray();
+            if (matches.Length == 0)
+            {
+                dynamic rule = CreateCom("HNetCfg.FWRule");
+                rule.Name = ruleName;
+                rule.Direction = direction;
+                rule.Protocol = AnyProtocol;
+                rule.Profiles = AllProfiles;
+                rule.Action = Block;
+                rule.RemoteAddresses = remote;
+                rule.Enabled = true;
+                rules.Add(rule);
+                continue;
+            }
+            foreach (var match in matches)
+            {
+                dynamic rule = match.Handle;
+                if (!SameAddresses(match, addresses)) rule.RemoteAddresses = remote;
+                if (match.Direction != direction) rule.Direction = direction;
+                if (match.Action != Block) rule.Action = Block;
+                if (!match.Enabled) rule.Enabled = true;
+            }
+        }
+    }
+
+    private static bool SameAddresses(Rule rule, List<string> addresses) =>
+        rule.Ranges.Count == rule.Addresses.Split(',').Length &&
+        rule.Ranges.Sum(range => (long)range.Last - range.First + 1) == addresses.Count &&
+        addresses.All(ip => TryIPv4(ip, out uint address) && rule.Ranges.Any(range => range.Contains(address)));
+
+    internal static List<AddressRange> ParseRanges(string remote)
+    {
+        var ranges = new List<AddressRange>();
+        foreach (string value in remote.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (value is "*" or "Any") { ranges.Add(new(0, uint.MaxValue)); continue; }
+            var bounds = value.Split('-', 2);
+            if (bounds.Length == 2)
+            {
+                if (TryIPv4(bounds[0], out uint first) && TryIPv4(bounds[1], out uint last) && first <= last)
+                    ranges.Add(new(first, last));
+            }
+            else if (TryIPv4(value, out uint single)) ranges.Add(new(single, single));
+            else if (IPNetwork.TryParse(value.Replace("/255.255.255.255", "/32", StringComparison.Ordinal), out var network)
+                && network.BaseAddress.AddressFamily == AddressFamily.InterNetwork)
+            {
+                uint start = BinaryPrimitives.ReadUInt32BigEndian(network.BaseAddress.GetAddressBytes());
+                uint mask = network.PrefixLength == 0 ? 0 : uint.MaxValue << (32 - network.PrefixLength);
+                ranges.Add(new(start, start | ~mask));
+            }
+        }
+        return ranges;
+    }
+
+    private static bool TryIPv4(string value, out uint address)
+    {
+        address = 0;
+        if (!IPAddress.TryParse(value, out var ip) || ip.AddressFamily != AddressFamily.InterNetwork) return false;
+        address = BinaryPrimitives.ReadUInt32BigEndian(ip.GetAddressBytes());
+        return true;
+    }
+
+    private static void RequireAdmin()
+    {
+        if (!IsAdmin()) throw new InvalidOperationException("Для изменения фаервола запустите приложение от администратора.");
     }
 }

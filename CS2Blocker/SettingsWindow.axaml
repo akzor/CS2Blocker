@@ -1,0 +1,129 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:CS2Blocker"
+        x:Class="CS2Blocker.SettingsWindow" x:DataType="local:SettingsViewModel" x:CompileBindings="True"
+        Title="Настройки CS2 Blocker" Width="520" MaxHeight="390" SizeToContent="Height" CanResize="False"
+        WindowDecorations="None" TransparencyLevelHint="Transparent" Background="Transparent"
+        WindowStartupLocation="CenterOwner" FontFamily="{DynamicResource BlockerFont}">
+  <Window.Styles>
+    <Style Selector="Border.settingsCard">
+      <Setter Property="Background" Value="{DynamicResource BlockerSurface}" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="12,10" />
+    </Style>
+    <Style Selector="TextBlock.settingsTitle">
+      <Setter Property="Foreground" Value="{DynamicResource BlockerText}" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="TextBlock.settingsDetail">
+      <Setter Property="Foreground" Value="{DynamicResource BlockerMuted}" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="Button.settingsAction">
+      <Setter Property="Padding" Value="12,8" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Background" Value="{DynamicResource BlockerHover}" />
+      <Setter Property="Foreground" Value="{DynamicResource BlockerText}" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.settingsClose">
+      <Setter Property="Width" Value="36" />
+      <Setter Property="Height" Value="32" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource BlockerText}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border x:Name="CloseBackground" Background="{TemplateBinding Background}" CornerRadius="7">
+            <Border Width="17" Height="17" Background="{TemplateBinding Foreground}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Border.OpacityMask>
+                <ImageBrush Source="avares://CS2Blocker/Assets/icons/x.png" />
+              </Border.OpacityMask>
+            </Border>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Button.settingsClose:pointerover /template/ Border#CloseBackground">
+      <Setter Property="Background" Value="{DynamicResource BlockerHover}" />
+    </Style>
+    <Style Selector="Button.settingsClose:focus-visible /template/ Border#CloseBackground">
+      <Setter Property="BorderBrush" Value="{DynamicResource BlockerAccent}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.adminBadge">
+      <Setter Property="Background" Value="{DynamicResource BlockerHover}" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.adminBadge.needed">
+      <Setter Property="Background" Value="{DynamicResource BlockerSelection}" />
+    </Style>
+    <Style Selector="Border.adminBadge.needed TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource BlockerAccent}" />
+    </Style>
+  </Window.Styles>
+  <Border Background="{DynamicResource BlockerBackground}" BorderBrush="{DynamicResource BlockerBorder}"
+          BorderThickness="1" CornerRadius="14" ClipToBounds="True">
+    <Grid RowDefinitions="44,*">
+      <Border x:Name="TitleBar" Background="{DynamicResource BlockerSurface}">
+        <Grid ColumnDefinitions="36,*,36" Margin="10,0">
+          <TextBlock Grid.Column="1" Text="Настройки" Classes="settingsTitle"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <Button Grid.Column="2" Classes="settingsClose" Command="{Binding CloseWindow}"
+                  AutomationProperties.Name="Закрыть настройки" ToolTip.Tip="Закрыть настройки" />
+        </Grid>
+      </Border>
+      <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" Padding="16">
+        <StackPanel Spacing="16">
+          <Border Classes="settingsCard">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Spacing="3" VerticalAlignment="Center">
+                <TextBlock Text="Запуск вместе с Windows" Classes="settingsTitle" />
+                <TextBlock Text="{Binding StartupDetail}" Classes="settingsDetail" />
+              </StackPanel>
+              <ToggleSwitch Grid.Column="1" IsChecked="{Binding StartupEnabled, Mode=TwoWay}"
+                            IsEnabled="{Binding StartupAvailable}" OnContent="" OffContent=""
+                            MinWidth="0" VerticalAlignment="Center"
+                            AutomationProperties.Name="Запуск вместе с Windows" />
+            </Grid>
+          </Border>
+          <Border Classes="settingsCard">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel Spacing="3">
+                  <TextBlock Text="Права администратора" Classes="settingsTitle" />
+                  <TextBlock Text="Нужны для изменения блокировок" Classes="settingsDetail" />
+                </StackPanel>
+                <Border Grid.Column="1" Classes="adminBadge" Classes.needed="{Binding NeedsAdmin}">
+                  <TextBlock Text="{Binding AdminStatus}" Classes="settingsDetail" />
+                </Border>
+              </Grid>
+              <Button Classes="settingsAction" Content="Перезапустить от администратора"
+                      Command="{Binding RestartAsAdmin}" IsVisible="{Binding NeedsAdmin}"
+                      IsEnabled="{Binding !Busy}" HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Center" />
+              <TextBlock Text="{Binding AdminFeedback}" Classes="settingsDetail"
+                         IsVisible="{Binding HasAdminFeedback}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="settingsCard">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Spacing="3">
+                <TextBlock Text="{Binding VersionLabel}" Classes="settingsTitle" />
+                <TextBlock Text="{Binding UpdateStatus}" Classes="settingsDetail" />
+              </StackPanel>
+              <Button Grid.Column="1" Classes="settingsAction" Content="Проверить"
+                      Command="{Binding CheckUpdates}" IsEnabled="{Binding !Busy}"
+                      IsVisible="{Binding CanUpdate}" />
+            </Grid>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Border>
+</Window>

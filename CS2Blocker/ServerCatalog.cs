@@ -24,6 +24,16 @@ internal static class ServerCatalog
 {
     public const string Url = "https://api.steampowered.com/ISteamApps/GetSDRConfig/v1/?appid=730";
     public static readonly TimeSpan RefreshInterval = TimeSpan.FromHours(12);
+    private static readonly Lazy<Dictionary<string, string>> RegionCodes = new(() =>
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
+        {
+            var region = new RegionInfo(culture.Name);
+            result.TryAdd(region.EnglishName, region.TwoLetterISORegionName);
+        }
+        return result;
+    });
     private static readonly Dictionary<string, string> CountryNames = new()
     {
         ["AR"] = "Аргентина", ["AU"] = "Австралия", ["AT"] = "Австрия",
@@ -53,13 +63,7 @@ internal static class ServerCatalog
         const string states = "Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming|District of Columbia";
         if (states.Split('|').Contains(location, StringComparer.OrdinalIgnoreCase) &&
             (location != "Georgia" || description.StartsWith("Atlanta (", StringComparison.OrdinalIgnoreCase))) return "US";
-        foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
-        {
-            var region = new RegionInfo(culture.Name);
-            if (string.Equals(region.EnglishName, location, StringComparison.OrdinalIgnoreCase))
-                return region.TwoLetterISORegionName;
-        }
-        return "";
+        return RegionCodes.Value.GetValueOrDefault(location, "");
     }
 
     public static List<ServerEntry> Parse(string json)
