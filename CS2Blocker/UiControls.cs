@@ -119,6 +119,12 @@ internal static class Ui
             HorizontalContentAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
         };
         AutomationProperties.SetName(button, title);
+        ApplyButtonTemplate(button, primary ? label : null, danger, flat);
+        return button;
+    }
+    private static void ApplyButtonTemplate(Button button, TextBlock? primaryLabel, bool danger, bool flat)
+    {
+        bool primary = primaryLabel != null;
         button.Template = new FuncControlTemplate<Button>((control, _) =>
         {
             var presenter = new ContentPresenter { Content = control.Content, Padding = control.Padding, HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center };
@@ -129,7 +135,7 @@ internal static class Ui
                     : control.IsPointerOver ? danger ? Brush("#452325") : Hover : flat ? Brushes.Transparent : Background;
                 border.BorderBrush = control.IsFocused ? Accent : flat ? Brushes.Transparent : primary ? Accent : Border;
                 border.Opacity = control.IsEnabled ? 1 : .45;
-                if (primary) label.Foreground = control.IsEnabled ? Background : Text;
+                if (primaryLabel != null) primaryLabel.Foreground = control.IsEnabled ? Background : Text;
             }
             control.PropertyChanged += (_, e) =>
             {
@@ -138,16 +144,24 @@ internal static class Ui
             };
             Update(); return border;
         });
-        return button;
     }
     public static Button CaptionButton(string icon, string label, Action action, bool danger = false)
     {
-        var button = Button(label, null, danger: danger, flat: true);
-        button.Content = Icon(icon, 14, Text);
-        button.Width = 30; button.Height = 26; button.MinWidth = 0; button.Padding = new Thickness(0);
+        var button = new Button();
+        StyleCaptionButton(button, icon, label, danger);
         button.Click += (_, _) => action();
-        ToolTip.SetTip(button, label);
         return button;
+    }
+    public static void StyleCaptionButton(Button button, string icon, string label, bool danger)
+    {
+        button.Content = Icon(icon, 14, Text);
+        button.Width = 30; button.Height = 26; button.MinWidth = 0; button.MinHeight = 0;
+        button.CornerRadius = new CornerRadius(8); button.Padding = new Thickness(0);
+        button.VerticalAlignment = VerticalAlignment.Center;
+        button.Cursor = new Cursor(StandardCursorType.Hand);
+        ApplyButtonTemplate(button, null, danger, flat: true);
+        AutomationProperties.SetName(button, label);
+        ToolTip.SetTip(button, label);
     }
     public static CheckBox Checkbox(Control content, string label, bool selected = false, bool highlightSelection = false)
     {

@@ -28,31 +28,7 @@
       <Setter Property="Foreground" Value="{DynamicResource BlockerText}" />
       <Setter Property="CornerRadius" Value="7" />
       <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
-    <Style Selector="Button.settingsClose">
-      <Setter Property="Width" Value="30" />
-      <Setter Property="Height" Value="26" />
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Foreground" Value="{DynamicResource BlockerText}" />
-      <Setter Property="Template">
-        <ControlTemplate>
-          <Border x:Name="CloseBackground" Background="{TemplateBinding Background}" CornerRadius="7">
-            <Border Width="14" Height="14" Background="{TemplateBinding Foreground}"
-                    HorizontalAlignment="Center" VerticalAlignment="Center">
-              <Border.OpacityMask>
-                <ImageBrush Source="avares://CS2Blocker/Assets/icons/x.png" />
-              </Border.OpacityMask>
-            </Border>
-          </Border>
-        </ControlTemplate>
-      </Setter>
-    </Style>
-    <Style Selector="Button.settingsClose:pointerover /template/ Border#CloseBackground">
-      <Setter Property="Background" Value="{DynamicResource BlockerHover}" />
-    </Style>
-    <Style Selector="Button.settingsClose:focus-visible /template/ Border#CloseBackground">
-      <Setter Property="BorderBrush" Value="{DynamicResource BlockerAccent}" />
-      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Cursor" Value="Hand" />
     </Style>
     <Style Selector="Border.adminBadge">
       <Setter Property="Background" Value="{DynamicResource BlockerHover}" />
@@ -74,8 +50,7 @@
         <Grid ColumnDefinitions="30,*,30" Margin="10,0">
           <TextBlock Grid.Column="1" Text="Настройки" Classes="settingsTitle"
                      HorizontalAlignment="Center" VerticalAlignment="Center" />
-          <Button Grid.Column="2" Classes="settingsClose" Command="{Binding CloseWindow}"
-                  AutomationProperties.Name="Закрыть настройки" ToolTip.Tip="Закрыть настройки" />
+          <Button x:Name="SettingsClose" Grid.Column="2" Command="{Binding CloseWindow}" />
         </Grid>
       </Border>
       <ScrollViewer x:Name="SettingsScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
@@ -89,7 +64,7 @@
               </StackPanel>
               <ToggleSwitch Grid.Column="1" IsChecked="{Binding StartupEnabled, Mode=TwoWay}"
                             IsEnabled="{Binding StartupAvailable}" OnContent="" OffContent=""
-                            MinWidth="0" VerticalAlignment="Center"
+                            MinWidth="0" VerticalAlignment="Center" Cursor="Hand"
                             AutomationProperties.Name="Запуск вместе с Windows" />
             </Grid>
           </Border>
