@@ -12,10 +12,10 @@ internal sealed class SettingsViewModel : INotifyPropertyChanged
     private bool _startupEnabled;
     private bool _closeToTray;
     private bool _busy;
-    private string _startupDetail = "Приложение запустится в трее";
-    private string _closeToTrayDetail = "Проверка серверов продолжится в трее";
+    private string _startupDetail = "The application starts in the tray";
+    private string _closeToTrayDetail = "Server checks continue in the tray";
     private string _adminFeedback = "";
-    private string _updateStatus = "Автопроверка раз в 15 минут";
+    private string _updateStatus = "Checks every 15 minutes";
 
     public SettingsViewModel(bool isAdmin, Action close, Func<Action<string>, Task> restart, Func<Action<string>, Task> check,
         bool closeToTray, Action<bool> setCloseToTray)
@@ -30,21 +30,21 @@ internal sealed class SettingsViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             StartupAvailable = false;
-            _startupDetail = "Не удалось прочитать автозапуск. " + ex.Message;
+            _startupDetail = "Cannot read startup settings. " + ex.Message;
         }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public bool NeedsAdmin { get; }
-    public string AdminStatus => NeedsAdmin ? "Нет прав" : "Есть права";
+    public string AdminStatus => NeedsAdmin ? "Not elevated" : "Elevated";
     public bool StartupAvailable { get; } = true;
     public string StartupDetail => _startupDetail;
     public string CloseToTrayDetail => _closeToTrayDetail;
     public string AdminFeedback => _adminFeedback;
     public bool HasAdminFeedback => _adminFeedback.Length > 0;
-    public string VersionLabel => $"Обновления · v{AppUpdate.CurrentVersion}";
+    public string VersionLabel => $"Updates · v{AppUpdate.CurrentVersion}";
     public bool CanUpdate => AppUpdate.IsSupported;
-    public string UpdateStatus => CanUpdate ? _updateStatus : "Для проверки нужна сборка из релиза GitHub";
+    public string UpdateStatus => CanUpdate ? _updateStatus : "Update checks require a GitHub release build";
     public bool Busy => _busy;
 
     public bool StartupEnabled
@@ -57,11 +57,11 @@ internal sealed class SettingsViewModel : INotifyPropertyChanged
             {
                 DesktopIntegration.SetStartup(value);
                 _startupEnabled = value;
-                _startupDetail = value ? "Автозапуск включён" : "Автозапуск выключен";
+                _startupDetail = value ? "Startup enabled" : "Startup disabled";
             }
             catch (Exception ex)
             {
-                _startupDetail = "Не удалось изменить автозапуск. " + ex.Message;
+                _startupDetail = "Cannot change startup settings. " + ex.Message;
             }
             Notify();
             Notify(nameof(StartupDetail));
@@ -78,9 +78,9 @@ internal sealed class SettingsViewModel : INotifyPropertyChanged
             {
                 _setCloseToTray(value);
                 _closeToTray = value;
-                _closeToTrayDetail = "Проверка серверов продолжится в трее";
+                _closeToTrayDetail = "Server checks continue in the tray";
             }
-            catch (Exception ex) { _closeToTrayDetail = "Не удалось сохранить настройку. " + ex.Message; }
+            catch (Exception ex) { _closeToTrayDetail = "Cannot save this setting. " + ex.Message; }
             Notify();
             Notify(nameof(CloseToTrayDetail));
         }

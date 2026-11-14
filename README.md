@@ -1,50 +1,41 @@
 <div align="center">
   <img src="CS2Blocker/Assets/valve-blocker.png" width="64" height="64" alt="Valve Blocker">
   <h1>Valve Blocker</h1>
-  <p>Блокировка реле CS2 по странам и локациям.</p>
-  <p>
-    <img src="https://img.shields.io/badge/Windows-x64-151719?style=flat-square&logo=windows&logoColor=EDB54D" alt="Windows x64">
-    <img src="https://img.shields.io/badge/.NET-8-151719?style=flat-square&logo=dotnet&logoColor=EDB54D" alt=".NET 8">
-    <img src="https://img.shields.io/badge/Avalonia-12.1-151719?style=flat-square" alt="Avalonia 12.1">
-  </p>
-  <p><a href="https://github.com/akzor/CS2Blocker/releases/latest"><strong>Скачать для Windows</strong></a> · <a href="https://github.com/akzor/CS2Blocker/releases">Что нового</a> · <a href="#сборка-из-исходников">Сборка</a></p>
+  <p>Block CS2 relays by country or location using Windows Firewall.</p>
+  <p><a href="https://github.com/akzor/CS2Blocker/releases/latest">Download for Windows</a> · <a href="https://github.com/akzor/CS2Blocker/releases">Release notes</a></p>
 </div>
 
-![Главное окно Valve Blocker](docs/screenshot.png)
+![Valve Blocker main window](docs/screenshot.png)
 
----
+## Getting started
 
-Приложение берёт список реле у Valve и блокирует IP через брандмауэр Windows. Готовый `.exe` работает без установки .NET.
+1. Download `CS2Blocker.exe` from the latest release. No separate .NET installation is required.
+2. Click **Administrator access required** and confirm the Windows prompt.
+3. Select countries under **Auto-block** and click **Apply**. **All countries** selects the entire list.
 
-## Быстрый старт
+To block individual locations, select rows and click **Block**. Search by location, code or IP. The **Status** menu filters the results. **Ping** measures latency, and **Activity** shows recent events.
 
-1. Скачай `CS2Blocker.exe` из [последнего релиза](https://github.com/akzor/CS2Blocker/releases/latest).
-2. Нажми **«Нужны права администратора»** внизу окна и подтверди запрос Windows.
-3. Отметь нужные страны в **«Автоблокировке»** и нажми **«Применить»**. Кнопка **«Все страны»** отмечает весь список.
+## Removing blocks
 
-Чтобы заблокировать отдельные локации, отметь их в таблице и нажми **«Блокировать»**. Локацию можно найти по названию, коду или IP. Меню **«Статус»** фильтрует таблицу вместе с поиском. Кнопка **«Пинг»** проверяет задержку, а **«Журнал»** показывает последние события.
+- Click **Unblock** to remove manual blocks from selected locations.
+- Click **Deselect all**, then **Apply**, to remove automatic country rules. Manual blocks stay active.
+- **Clear all** removes every `CS2_Block_*` rule created by the application and disables automatic blocking.
 
-### Как снять блокировку
+Exiting the application keeps existing firewall rules active.
 
-- Для отдельных локаций нажми **«Разблокировать»**.
-- Для автоблокировки стран нажми **«Снять выбор»**, затем **«Применить»**. Ручные блокировки останутся.
-- Кнопка **«Снять всё»** удаляет все правила приложения `CS2_Block_*` и отключает автоблокировку.
+## Tray and updates
 
-Закрытие приложения не снимает блокировки.
+Closing the window minimizes it to the tray by default. Choose **Exit** from the tray menu to quit. Startup and close behavior can be changed in **Settings**.
 
-## Трей и обновления
+The Valve list refreshes every 12 hours, including while minimized to the tray. Keep the application running as administrator to block newly published IPs automatically.
 
-Крестик по умолчанию сворачивает окно в трей. Для полного закрытия выбери **«Выход»** в меню значка. Сворачивание и запуск вместе с Windows можно настроить отдельно.
+Version 0.2.0 and later check GitHub Releases at startup and every 15 minutes. Downloads are verified using SHA-256 before installation. Use **Check** in Settings for a manual check. Users on 0.1.0 must download a newer executable manually.
 
-Приложение обновляет список Valve каждые 12 часов, в том числе в трее. Для автоблокировки новых IP держи приложение запущенным с правами администратора.
+Settings and the cached list are stored in `%LOCALAPPDATA%\CS2Blocker\settings.json`.
 
-Начиная с 0.2.0 приложение ищет новые версии на GitHub при запуске и каждые 15 минут. Перед установкой оно сверяет SHA-256 файла. Ручная проверка доступна в настройках. С версии 0.1.0 нужно перейти вручную, скачав свежий `.exe`.
+## Building
 
-Настройки и кеш списка лежат в `%LOCALAPPDATA%\CS2Blocker\settings.json`.
-
-## Сборка из исходников
-
-Нужны Windows x64 и .NET SDK 8 или новее.
+Requires Windows x64 and .NET SDK 8 or later.
 
 ```powershell
 git clone https://github.com/akzor/CS2Blocker.git
@@ -52,15 +43,15 @@ cd CS2Blocker
 dotnet publish CS2Blocker/CS2Blocker.csproj -c Release -o release
 ```
 
-Готовый файл находится в `release/CS2Blocker.exe`.
+The executable is written to `release/CS2Blocker.exe`.
 
-## Ресурсы
+## Credits
 
-- Интерфейс на [Avalonia](https://github.com/AvaloniaUI/Avalonia).
-- Иконки из [Tabler Icons](https://github.com/tabler/tabler-icons) по [лицензии MIT](CS2Blocker/Assets/icons/LICENSE.txt).
-- Лицензии шрифтов в [Assets/fonts](CS2Blocker/Assets/fonts).
-- Флаги из [Flagpedia](https://flagpedia.net/).
-- Значок прав администратора из Windows.
-- Изображение Counter-Strike 2 принадлежит Valve. [Steam](https://steamcommunity.com/app/730)
+- UI built with [Avalonia](https://github.com/AvaloniaUI/Avalonia).
+- Icons from [Tabler Icons](https://github.com/tabler/tabler-icons), licensed under [MIT](CS2Blocker/Assets/icons/LICENSE.txt).
+- Font licenses are included in [Assets/fonts](CS2Blocker/Assets/fonts).
+- Flags from [Flagpedia](https://flagpedia.net/).
+- Administrator icon supplied by Windows.
+- Counter-Strike 2 artwork belongs to Valve. [Steam](https://steamcommunity.com/app/730)
 
-Неофициальная утилита, не связанная с Valve.
+Unofficial utility. Not affiliated with Valve.

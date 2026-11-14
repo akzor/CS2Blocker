@@ -9,6 +9,6 @@ internal sealed partial class SettingsWindow : Window
     {
         AvaloniaXamlLoader.Load(this);
         Ui.AttachWindowDrag(this, this.FindControl<Border>("TitleBar")!);
-        Ui.StyleCaptionButton(this.FindControl<Button>("SettingsClose")!, "x", "Закрыть настройки", danger: true);
+        Ui.StyleCaptionButton(this.FindControl<Button>("SettingsClose")!, "x", "Close settings", danger: true);
     }
 }

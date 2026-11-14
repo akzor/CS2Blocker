@@ -37,14 +37,14 @@ internal static class Firewall
             server.Addresses.Count == 0 ||
             server.Addresses.Any(a => !IPAddress.TryParse(a, out var ip) ||
                 ip.AddressFamily != AddressFamily.InterNetwork || ip.ToString() != a))
-            throw new ArgumentException("Некорректные данные правила фаервола.");
+            throw new ArgumentException("Invalid firewall rule data.");
     }
 
     public static Task ApplyCountries(List<ServerEntry> servers, HashSet<string> countries) => Task.Run(() =>
     {
         RequireAdmin();
         if (countries.Any(country => !Regex.IsMatch(country, @"\A[A-Z]{2}\z")))
-            throw new ArgumentException("Некорректная страна.");
+            throw new ArgumentException("Invalid country.");
         var selected = servers.Where(s => countries.Contains(s.Country) && s.Addresses.Count > 0).ToList();
         selected.ForEach(Validate);
 
@@ -92,7 +92,7 @@ internal static class Firewall
         dynamic rules = OpenRules();
         foreach (var rule in ReadRules(rules)) rules.Remove(rule.Name);
         if (ReadRules(rules).Count != 0)
-            throw new InvalidOperationException("Остались правила CS2_Block_*.");
+            throw new InvalidOperationException("Some CS2_Block_* rules remain.");
     });
 
     public static async Task Sync(List<ServerEntry> servers)
@@ -126,8 +126,8 @@ internal static class Firewall
 
     private static object CreateCom(string progId)
     {
-        var type = Type.GetTypeFromProgID(progId) ?? throw new InvalidOperationException("Windows Firewall недоступен.");
-        return Activator.CreateInstance(type) ?? throw new InvalidOperationException("Windows Firewall недоступен.");
+        var type = Type.GetTypeFromProgID(progId) ?? throw new InvalidOperationException("Windows Firewall is unavailable.");
+        return Activator.CreateInstance(type) ?? throw new InvalidOperationException("Windows Firewall is unavailable.");
     }
 
     private static List<Rule> ReadRules(object rules)
@@ -214,6 +214,6 @@ internal static class Firewall
 
     private static void RequireAdmin()
     {
-        if (!IsAdmin()) throw new InvalidOperationException("Для изменения фаервола запустите приложение от администратора.");
+        if (!IsAdmin()) throw new InvalidOperationException("Run as administrator to change firewall rules.");
     }
 }

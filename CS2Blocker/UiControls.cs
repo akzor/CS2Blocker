@@ -210,9 +210,9 @@ internal static class Ui
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Right };
         if (confirm)
         {
-            var cancel = Button("Отмена", "x"); cancel.Click += (_, _) => window.Close(false); actions.Children.Add(cancel);
+            var cancel = Button("Cancel", "x"); cancel.Click += (_, _) => window.Close(false); actions.Children.Add(cancel);
         }
-        var ok = Button(confirm ? "Снять всё" : "OK", confirm ? "trash" : "check", primary: !confirm, danger: confirm);
+        var ok = Button(confirm ? "Clear all" : "OK", confirm ? "trash" : "check", primary: !confirm, danger: confirm);
         ok.Click += (_, _) => window.Close(true); actions.Children.Add(ok);
         Put(body, actions, 0, 1); window.Content = Round(body, Surface, 14);
         return window;

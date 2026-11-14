@@ -36,18 +36,18 @@ internal static class ServerCatalog
     });
     private static readonly Dictionary<string, string> CountryNames = new()
     {
-        ["AR"] = "Аргентина", ["AU"] = "Австралия", ["AT"] = "Австрия",
-        ["BR"] = "Бразилия", ["GB"] = "Великобритания", ["DE"] = "Германия",
-        ["HK"] = "Гонконг", ["GU"] = "Гуам", ["IN"] = "Индия",
-        ["ES"] = "Испания", ["CN"] = "Китай", ["NL"] = "Нидерланды",
-        ["AE"] = "ОАЭ", ["PE"] = "Перу", ["PL"] = "Польша", ["US"] = "США",
-        ["SG"] = "Сингапур", ["FI"] = "Финляндия", ["FR"] = "Франция",
-        ["CL"] = "Чили", ["SE"] = "Швеция", ["ZA"] = "ЮАР",
-        ["KR"] = "Южная Корея", ["JP"] = "Япония"
+        ["AR"] = "Argentina", ["AU"] = "Australia", ["AT"] = "Austria",
+        ["BR"] = "Brazil", ["GB"] = "United Kingdom", ["DE"] = "Germany",
+        ["HK"] = "Hong Kong", ["GU"] = "Guam", ["IN"] = "India",
+        ["ES"] = "Spain", ["CN"] = "China", ["NL"] = "Netherlands",
+        ["AE"] = "UAE", ["PE"] = "Peru", ["PL"] = "Poland", ["US"] = "United States",
+        ["SG"] = "Singapore", ["FI"] = "Finland", ["FR"] = "France",
+        ["CL"] = "Chile", ["SE"] = "Sweden", ["ZA"] = "South Africa",
+        ["KR"] = "South Korea", ["JP"] = "Japan"
     };
 
     public static string CountryName(string code) => CountryNames.TryGetValue(code, out var name)
-        ? name : code.Length == 0 ? "Страна неизвестна" : new RegionInfo(code).EnglishName;
+        ? name : code.Length == 0 ? "Unknown country" : new RegionInfo(code).EnglishName;
 
     public static bool IsDue(DateTimeOffset? last, DateTimeOffset now) =>
         last == null || now < last.Value || now - last.Value >= RefreshInterval;
@@ -69,12 +69,12 @@ internal static class ServerCatalog
     public static List<ServerEntry> Parse(string json)
     {
         var pops = JObject.Parse(json)["pops"] as JObject
-            ?? throw new FormatException("В ответе Valve отсутствует список pops.");
+            ?? throw new FormatException("Valve response is missing the pops list.");
         var servers = new List<ServerEntry>();
         foreach (var pop in pops.Properties())
         {
             if (!Regex.IsMatch(pop.Name, @"\A[a-zA-Z0-9_]{1,32}\z") || pop.Value is not JObject data)
-                throw new FormatException("Некорректный код точки Valve.");
+                throw new FormatException("Invalid Valve location code.");
             string description = data["desc"]?.Value<string>() ?? pop.Name;
             var addresses = new List<string>();
             if (data["relays"] is JArray relays)
@@ -82,7 +82,7 @@ internal static class ServerCatalog
                 {
                     string value = relay["ipv4"]?.Value<string>() ?? "";
                     if (!IPAddress.TryParse(value, out var ip) || ip.AddressFamily != AddressFamily.InterNetwork)
-                        throw new FormatException($"Некорректный IPv4 у {pop.Name}.");
+                        throw new FormatException($"Invalid IPv4 address for {pop.Name}.");
                     addresses.Add(ip.ToString());
                 }
             servers.Add(new ServerEntry
@@ -91,7 +91,7 @@ internal static class ServerCatalog
                 Country = ResolveCountry(description), Addresses = addresses.Distinct().ToList()
             });
         }
-        if (servers.Count == 0) throw new FormatException("Valve вернула пустой список серверов.");
+        if (servers.Count == 0) throw new FormatException("Valve returned an empty server list.");
         return servers.OrderBy(s => CountryName(s.Country)).ThenBy(s => s.Description).ToList();
     }
 }
@@ -108,7 +108,7 @@ internal sealed class AppSettings
 
     public static AppSettings Load() => File.Exists(FilePath)
         ? JsonConvert.DeserializeObject<AppSettings>(File.ReadAllText(FilePath))
-            ?? throw new FormatException("Пустой файл настроек.")
+            ?? throw new FormatException("The settings file is empty.")
         : new AppSettings();
 
     public void Save()

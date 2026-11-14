@@ -9,13 +9,13 @@ internal static class DesktopIntegration
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string ValueName = "CS2Blocker";
     private static string Executable => Environment.ProcessPath
-        ?? throw new InvalidOperationException("Не удалось определить путь приложения.");
+        ?? throw new InvalidOperationException("Cannot determine the application path.");
 
     internal static string StartupCommand(string executable)
     {
         if (!Path.IsPathFullyQualified(executable) || executable.Contains('"') ||
             !string.Equals(Path.GetExtension(executable), ".exe", StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException("Некорректный путь приложения.");
+            throw new ArgumentException("Invalid application path.");
         return $"\"{executable}\" --tray";
     }
 
@@ -34,7 +34,7 @@ internal static class DesktopIntegration
             : Registry.CurrentUser.OpenSubKey(RunKey, true);
         if (key == null)
         {
-            if (enabled) throw new InvalidOperationException("Не удалось открыть настройки автозапуска Windows.");
+            if (enabled) throw new InvalidOperationException("Cannot open Windows startup settings.");
             return;
         }
         WriteStartup(key, enabled, Executable);

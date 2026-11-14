@@ -37,12 +37,12 @@ internal sealed partial class MainWindow : Window
     private readonly Queue<string> _events = new();
     private readonly ProgressBar _progress;
     private readonly WrapPanel _actions;
-    private readonly CheckBox _selectAll = Ui.Checkbox(Ui.Label("Выбрать все", 14), "Выбрать все");
-    private readonly Button _stop = MainButton("Стоп", "player-stop");
-    private readonly Button _clear = MainButton("Снять всё", "trash", danger: true);
-    private readonly Button _allCountries = MainButton("Все страны");
-    private readonly Button _noCountries = MainButton("Снять выбор");
-    private readonly Button _applyCountries = MainButton("Применить", "check", primary: true);
+    private readonly CheckBox _selectAll = Ui.Checkbox(Ui.Label("Select all", 14), "Select all");
+    private readonly Button _stop = MainButton("Stop", "player-stop");
+    private readonly Button _clear = MainButton("Clear all", "trash", danger: true);
+    private readonly Button _allCountries = MainButton("All countries");
+    private readonly Button _noCountries = MainButton("Deselect all");
+    private readonly Button _applyCountries = MainButton("Apply", "check", primary: true);
     private readonly Button? _adminButton;
     private Button _pingButton = null!;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMinutes(1) };
@@ -78,9 +78,9 @@ internal sealed partial class MainWindow : Window
         var journal = Part<Button>("JournalTab");
         var tabs = new[]
         {
-            (autoTab, "Автоблокировка", Ui.Icon("adjustments-horizontal", 20)),
-            (settings, "Настройки", Ui.Icon("settings", 20, Ui.Muted)),
-            (journal, "Журнал", (Control)new Avalonia.Controls.Shapes.Path
+            (autoTab, "Auto-block", Ui.Icon("adjustments-horizontal", 20)),
+            (settings, "Settings", Ui.Icon("settings", 20, Ui.Muted)),
+            (journal, "Activity", (Control)new Avalonia.Controls.Shapes.Path
             {
                 Data = (Geometry)Resources["JournalGeometry"]!, Stroke = Ui.Muted, StrokeThickness = 1.5,
                 StrokeLineCap = PenLineCap.Round, Stretch = Stretch.Uniform, Width = 20, Height = 20,
@@ -96,10 +96,10 @@ internal sealed partial class MainWindow : Window
         _history.TextWrapping = TextWrapping.Wrap; _history.MaxWidth = 420;
         journal.Flyout = new Flyout { Content = new ScrollViewer { Content = _history, MaxHeight = 380 } };
         var captions = Part<StackPanel>("CaptionButtons");
-        captions.Children.Add(Ui.CaptionButton("minus", "Свернуть в трей", () => WindowState = WindowState.Minimized));
-        var maximize = Ui.CaptionButton("square", "Развернуть / восстановить", ToggleMaximize);
+        captions.Children.Add(Ui.CaptionButton("minus", "Minimize to tray", () => WindowState = WindowState.Minimized));
+        var maximize = Ui.CaptionButton("square", "Maximize / restore", ToggleMaximize);
         captions.Children.Add(maximize);
-        captions.Children.Add(Ui.CaptionButton("x", "Закрыть приложение", Close, true));
+        captions.Children.Add(Ui.CaptionButton("x", "Close application", Close, true));
         _status = Part<TextBlock>("ActivityText");
         _statusDot = Part<Border>("ActivityDot");
         _progress = Part<ProgressBar>("ActivityProgress");
@@ -107,11 +107,11 @@ internal sealed partial class MainWindow : Window
         _countryScroll = Part<ScrollViewer>("CountryScroll");
         _countrySearch = Part<TextBox>("CountrySearch");
         _countrySearch.TextChanged += (_, _) => { _countryScroll.Offset = default; PopulateCountries(); };
-        var sideHeading = Ui.Label("Автоблокировка", bold: true);
+        var sideHeading = Ui.Label("Auto-block", bold: true);
         sideHeading.ClearValue(TextBlock.FontSizeProperty);
         sideHeading.Classes.Add("sideHeading");
         Part<ContentControl>("SidebarTitle").Content = ButtonContent(sideHeading, Ui.Icon("adjustments-horizontal", 21));
-        const string schedule = "Проверка каждые 12 часов";
+        const string schedule = "Checks every 12 hours";
         var scheduleLabel = Ui.Label(schedule, 13);
         var scheduleGroup = ButtonContent(scheduleLabel, Ui.Icon("clock", 19));
         ToolTip.SetTip(scheduleGroup, schedule);
@@ -123,8 +123,8 @@ internal sealed partial class MainWindow : Window
             bool compact = e.NewSize.Width < 900 || e.NewSize.Height < 620;
             Classes.Set("compact", compact);
             brandName.IsVisible = e.NewSize.Width >= 690;
-            scheduleLabel.Text = compact ? "Проверка раз в 12 ч" : schedule;
-            sidebarDescription.Text = e.NewSize.Height < 490 ? "Блокировка по странам" : description;
+            scheduleLabel.Text = compact ? "Checks every 12 h" : schedule;
+            sidebarDescription.Text = e.NewSize.Height < 490 ? "Block by country" : description;
             foreach (var (tab, _, _) in tabs)
                 ((StackPanel)tab.Content!).Children[1].IsVisible = e.NewSize.Width >= 570;
         };
@@ -136,8 +136,8 @@ internal sealed partial class MainWindow : Window
         }
         ((TextBlock)_allCountries.Content!).FontSize = 12.5;
         ((TextBlock)_noCountries.Content!).FontSize = 12.5;
-        ToolTip.SetTip(_allCountries, "Отметить все страны, включая скрытые поиском.");
-        ToolTip.SetTip(_noCountries, "Снять отметки со всех стран.");
+        ToolTip.SetTip(_allCountries, "Select all countries, including those hidden by search.");
+        ToolTip.SetTip(_noCountries, "Deselect all countries.");
         _allCountries.Click += (_, _) => SelectCountries(true);
         _noCountries.Click += (_, _) => SelectCountries(false);
         _applyHost = Part<ContentControl>("ApplyHost");
@@ -153,7 +153,7 @@ internal sealed partial class MainWindow : Window
 
         _actions = Part<WrapPanel>("RelayActions");
         _selectAll.Height = 38; _selectAll.Margin = new Thickness(0, 0, 8, 0);
-        ToolTip.SetTip(_selectAll, "Выбрать все локации с IP, включая скрытые поиском.");
+        ToolTip.SetTip(_selectAll, "Select all locations with IPs, including those hidden by search.");
         _selectAll.IsCheckedChanged += (_, _) =>
         {
             if (_updatingSelection) return;
@@ -161,10 +161,10 @@ internal sealed partial class MainWindow : Window
             RenderRows();
         };
         _actions.Children.Add(_selectAll);
-        AddAction("Блокировать", "lock", () => SetSelected(true), true, true);
-        AddAction("Разблокировать", "lock-open", () => SetSelected(false), true);
-        AddAction("Обновить", "refresh", RefreshServers);
-        _pingButton = AddAction("Пинг", "antenna-bars-5", PingAll);
+        AddAction("Block", "lock", () => SetSelected(true), true, true);
+        AddAction("Unblock", "lock-open", () => SetSelected(false), true);
+        AddAction("Refresh", "refresh", RefreshServers);
+        _pingButton = AddAction("Ping", "antenna-bars-5", PingAll);
         _stop.Classes.Add("relayAction");
         _stop.IsVisible = false; _stop.Margin = new Thickness(0, 0, 8, 0); _stop.Click += (_, _) => _pingCancellation?.Cancel();
         _actions.Children.Add(_stop);
@@ -178,9 +178,9 @@ internal sealed partial class MainWindow : Window
         repository.Click += (_, _) =>
         {
             try { using var browser = Process.Start(new ProcessStartInfo(RepositoryUrl) { UseShellExecute = true }); }
-            catch (Exception ex) { SetStatus("Не удалось открыть GitHub. " + ex.Message, true); }
+            catch (Exception ex) { SetStatus("Cannot open GitHub. " + ex.Message, true); }
         };
-        string permission = _isAdmin ? "Права администратора активны" : "Нужны права администратора";
+        string permission = _isAdmin ? "Administrator access active" : "Administrator access required";
         var adminLabel = Ui.Label(permission, 13, _isAdmin ? Ui.Text : Ui.Accent);
         var adminContent = ButtonContent(adminLabel, Ui.PngIcon("icons/windows-uac.png", 18));
         if (_isAdmin)
@@ -190,14 +190,14 @@ internal sealed partial class MainWindow : Window
         }
         else
         {
-            const string restart = "Перезапустить от администратора";
+            const string restart = "Restart as administrator";
             _adminButton = new Button { Content = adminContent, Classes = { "mainAction", "adminAction" } };
             AutomationProperties.SetName(_adminButton, restart);
             ToolTip.SetTip(_adminButton, restart);
             _adminButton.Click += async (_, _) =>
             {
                 try { await RestartAsAdmin(message => SetStatus(message)); }
-                catch (Exception ex) { SetStatus("Не удалось перезапустить приложение. " + ex.Message, true); }
+                catch (Exception ex) { SetStatus("Cannot restart the application. " + ex.Message, true); }
             };
             adminBadge.Content = _adminButton;
         }
@@ -215,7 +215,7 @@ internal sealed partial class MainWindow : Window
             searchFrame.Width = stacked ? double.NaN : 208;
             searchFrame.Margin = new Thickness(0, stacked ? 5 : 0, 0, 0);
             bool compactSummary = e.NewSize.Width < 520;
-            adminLabel.Text = compactSummary ? (_isAdmin ? "Администратор" : "Нужны права") : permission;
+            adminLabel.Text = compactSummary ? (_isAdmin ? "Administrator" : "Admin required") : permission;
             if (_compactSummary != compactSummary)
             {
                 _compactSummary = compactSummary;
@@ -232,9 +232,9 @@ internal sealed partial class MainWindow : Window
         {
             if (_rowScroll.Viewport.Width > 0) tableHead.Width = _rowScroll.Viewport.Width;
         };
-        var headerCheck = Ui.Checkbox(new Border(), "Выбрать все строки");
+        var headerCheck = Ui.Checkbox(new Border(), "Select all rows");
         headerCheck.Width = 34; headerCheck.MinHeight = 0; headerCheck.HorizontalAlignment = HorizontalAlignment.Center;
-        ToolTip.SetTip(headerCheck, "Выбрать все локации с IP, включая скрытые поиском.");
+        ToolTip.SetTip(headerCheck, "Select all locations with IPs, including those hidden by search.");
         headerCheck.IsCheckedChanged += (_, _) =>
         {
             if (_updatingSelection) return;
@@ -243,7 +243,7 @@ internal sealed partial class MainWindow : Window
         };
         _selectAll.IsCheckedChanged += (_, _) => { _updatingSelection = true; headerCheck.IsChecked = _selectAll.IsChecked; _updatingSelection = false; };
         Ui.Put(tableHead, headerCheck);
-        string[] headings = { "Локация", "Страна", "IP", "Пинг" };
+        string[] headings = { "Location", "Country", "IP", "Ping" };
         for (int i = 0; i < headings.Length; i++)
         {
             var label = Ui.Label(headings[i], 13, Ui.Muted);
@@ -256,8 +256,8 @@ internal sealed partial class MainWindow : Window
         Screens.Changed += ScreenChanged;
 
         var menu = new NativeMenu();
-        var open = new NativeMenuItem("Открыть приложение"); open.Click += (_, _) => Dispatcher.UIThread.Post(RestoreWindow);
-        var exit = new NativeMenuItem("Выход"); exit.Click += (_, _) => Dispatcher.UIThread.Post(ExitApplication);
+        var open = new NativeMenuItem("Open application"); open.Click += (_, _) => Dispatcher.UIThread.Post(RestoreWindow);
+        var exit = new NativeMenuItem("Exit"); exit.Click += (_, _) => Dispatcher.UIThread.Post(ExitApplication);
         menu.Items.Add(open); menu.Items.Add(exit);
         _tray = new TrayIcon { Icon = Icon, ToolTipText = Title, Menu = menu, IsVisible = false };
         _tray.Clicked += (_, _) => Dispatcher.UIThread.Post(RestoreWindow);
@@ -270,7 +270,7 @@ internal sealed partial class MainWindow : Window
             outer.CornerRadius = new CornerRadius(WindowState == WindowState.Maximized ? 0 : 15);
             if (WindowState == WindowState.Normal) FitToScreen();
             if (WindowState != WindowState.Minimized) return;
-            if (_tray.NativeMenuExporter == null) { WindowState = WindowState.Normal; SetStatus("Системный трей недоступен.", true); return; }
+            if (_tray.NativeMenuExporter == null) { WindowState = WindowState.Normal; SetStatus("The system tray is unavailable.", true); return; }
             _tray.IsVisible = true; Hide();
         };
         Closing += (_, e) =>
@@ -283,7 +283,7 @@ internal sealed partial class MainWindow : Window
                 return;
             }
             if (!_busy) return;
-            e.Cancel = true; _pingCancellation?.Cancel(); SetStatus("Дождитесь завершения операции перед выходом.");
+            e.Cancel = true; _pingCancellation?.Cancel(); SetStatus("Wait for the operation to finish before exiting.");
         };
         Closed += (_, _) => { _updateCancellation.Cancel(); Screens.Changed -= ScreenChanged; _timer.Stop(); _trayIcons.Remove(_tray); _tray.Dispose(); };
         _timer.Tick += async (_, _) =>
@@ -305,13 +305,13 @@ internal sealed partial class MainWindow : Window
     private async Task Initialize()
     {
         _busy = true; SetEnabled(false);
-        SetStatus("Загружаем сохранённый список…");
+        SetStatus("Loading the saved list…");
         try
         {
             (_settings, _servers) = await Task.Run(() =>
             {
                 var settings = AppSettings.Load();
-                if (settings.BlockedCountries == null) throw new FormatException("Повреждён список стран.");
+                if (settings.BlockedCountries == null) throw new FormatException("The country list is corrupted.");
                 foreach (string country in settings.BlockedCountries) _ = new System.Globalization.RegionInfo(country);
                 var servers = settings.CatalogJson == null ? new List<ServerEntry>() : ServerCatalog.Parse(settings.CatalogJson);
                 return (settings, servers);
@@ -320,7 +320,7 @@ internal sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             _busy = false;
-            await Ui.MessageWindow($"Не удалось прочитать настройки. Файл не изменён.\n{ex.Message}").ShowDialog<bool>(this);
+            await Ui.MessageWindow($"Cannot read settings. The file was left unchanged.\n{ex.Message}").ShowDialog<bool>(this);
             ExitApplication(); return;
         }
         finally { _busy = false; SetEnabled(true); }
@@ -338,7 +338,7 @@ internal sealed partial class MainWindow : Window
         if (!AppUpdate.IsSupported) return;
         if (_updateInProgress || _busy)
         {
-            feedback?.Invoke("Дождитесь завершения текущей операции.");
+            feedback?.Invoke("Wait for the current operation to finish.");
             return;
         }
         if (!manual && (_settingsWindow != null || HasCountryDraft || DateTimeOffset.UtcNow < _nextUpdateCheck)) return;
@@ -355,12 +355,12 @@ internal sealed partial class MainWindow : Window
 
         try
         {
-            feedback?.Invoke("Проверяем релизы GitHub…");
+            feedback?.Invoke("Checking GitHub releases…");
             var release = await AppUpdate.Find(cancellation);
             cancellation.ThrowIfCancellationRequested();
             if (release == null)
             {
-                feedback?.Invoke("Установлена последняя версия.");
+                feedback?.Invoke("You have the latest version.");
                 return;
             }
 
@@ -368,23 +368,23 @@ internal sealed partial class MainWindow : Window
             if (!CanInstall())
             {
                 _nextUpdateCheck = DateTimeOffset.UtcNow.AddMinutes(1);
-                feedback?.Invoke($"Доступна v{release.Version}. Примените выбор стран или дождитесь завершения операции.");
+                feedback?.Invoke($"Version {release.Version} is available. Apply your country selection or wait for the operation to finish.");
                 return;
             }
 
             string executable = Environment.ProcessPath!;
             downloaded = executable + "." + Guid.NewGuid().ToString("N") + ".download";
-            Report($"Скачиваем обновление v{release.Version}…");
+            Report($"Downloading update v{release.Version}…");
             await AppUpdate.Download(release, downloaded, cancellation);
             cancellation.ThrowIfCancellationRequested();
             if (!CanInstall())
             {
                 _nextUpdateCheck = DateTimeOffset.UtcNow.AddMinutes(1);
-                Report("Обновление установится после завершения текущей работы.");
+                Report("The update will install when the current operation finishes.");
                 return;
             }
 
-            Report("Устанавливаем обновление и перезапускаем приложение…");
+            Report("Installing the update and restarting…");
             _busy = true; SetEnabled(false);
             try
             {
@@ -402,8 +402,8 @@ internal sealed partial class MainWindow : Window
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            string action = downloaded == null ? "проверить" : "установить";
-            if (manual || downloaded != null) Report($"Не удалось {action} обновление. {ex.Message}", true);
+            string action = downloaded == null ? "check for" : "install";
+            if (manual || downloaded != null) Report($"Could not {action} the update. {ex.Message}", true);
         }
         finally
         {
@@ -436,7 +436,7 @@ internal sealed partial class MainWindow : Window
 
     private void SetCloseToTray(bool enabled)
     {
-        if (_busy) throw new InvalidOperationException("Дождитесь завершения текущей операции.");
+        if (_busy) throw new InvalidOperationException("Wait for the current operation to finish.");
         bool previous = _settings.CloseToTray;
         _settings.CloseToTray = enabled;
         try { _settings.Save(); }
@@ -445,14 +445,14 @@ internal sealed partial class MainWindow : Window
 
     private async Task RestartAsAdmin(Action<string> feedback)
     {
-        if (_busy) { feedback("Дождитесь завершения текущей операции."); return; }
+        if (_busy) { feedback("Wait for the current operation to finish."); return; }
         _busy = true; SetEnabled(false);
         try
         {
-            feedback("Подтвердите запуск в окне Windows…");
+            feedback("Confirm the Windows prompt…");
             if (!await Task.Run(DesktopIntegration.StartElevated))
             {
-                feedback("Перезапуск отменён.");
+                feedback("Restart cancelled.");
                 return;
             }
             _closingForRestart = true;
@@ -503,7 +503,7 @@ internal sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             _retryAfter = DateTimeOffset.UtcNow.AddMinutes(5);
-            SetStatus(ex.Message + (_refreshPending || _policyPending ? " Автопроверка повторится через 5 минут." : ""), true);
+            SetStatus(ex.Message + (_refreshPending || _policyPending ? " Automatic checks will retry in 5 minutes." : ""), true);
         }
         finally { _progress.IsVisible = false; _busy = false; SetEnabled(true); RenderRows(); }
     }
@@ -521,7 +521,7 @@ internal sealed partial class MainWindow : Window
 
     private async Task RefreshServers()
     {
-        _refreshPending = true; SetStatus("Получаем актуальный список Valve…");
+        _refreshPending = true; SetStatus("Fetching the latest Valve list…");
         string json = await CatalogClient.GetStringAsync(ServerCatalog.Url);
         var updated = await Task.Run(() => ServerCatalog.Parse(json));
         var previous = _servers.ToLookup(s => s.Code);
@@ -533,25 +533,25 @@ internal sealed partial class MainWindow : Window
         await Task.Run(_settings.Save);
         _refreshPending = false;
         await ApplyPolicy();
-        SetStatus($"Список Valve обновлён ({added} новых локаций)." + (!_isAdmin ? " Для блокировки нужны права администратора." : ""));
+        SetStatus($"Valve list refreshed ({added} new locations)." + (!_isAdmin ? " Administrator access is required to block relays." : ""));
     }
 
     private async Task ApplyPolicy()
     {
-        SetStatus(_isAdmin ? "Применяем правила фаервола…" : "Проверяем правила фаервола…");
+        SetStatus(_isAdmin ? "Applying firewall rules…" : "Checking firewall rules…");
         if (!_isAdmin)
         {
             await Firewall.Sync(_servers);
-            SetStatus("Для автоблокировки запустите приложение от администратора."); return;
+            SetStatus("Run as administrator to enable automatic blocking."); return;
         }
         _policyPending = true;
         foreach (var server in _servers) server.FirewallKnown = false;
         await Firewall.ApplyCountries(_servers, _settings.BlockedCountries);
         await Firewall.Sync(_servers);
         if (_servers.Any(s => s.Addresses.Count > 0 && _settings.BlockedCountries.Contains(s.Country) && !s.Blocked))
-            throw new InvalidOperationException("Не все автоматические правила подтверждены фаерволом.");
+            throw new InvalidOperationException("The firewall did not confirm all automatic rules.");
         _policyPending = false;
-        SetStatus("Правила выбранных стран обновлены. Ручные блокировки сохранены.");
+        SetStatus("Country rules updated. Manual blocks preserved.");
     }
 
     private void PopulateCountries()
@@ -580,7 +580,7 @@ internal sealed partial class MainWindow : Window
             _countries.Children.Add(checkbox);
         }
         if (query.Length > 0 && _countries.Children.Count == 0)
-            _countries.Children.Add(Ui.Label("Страны не найдены", 13, Ui.Muted));
+            _countries.Children.Add(Ui.Label("No countries found", 13, Ui.Muted));
         _populatingCountries = false;
     }
 
@@ -617,30 +617,30 @@ internal sealed partial class MainWindow : Window
     private async Task ChangeManual(List<ServerEntry> selected, bool block)
     {
         selected = selected.Where(s => s.Addresses.Count > 0).ToList();
-        if (selected.Count == 0) { SetStatus("Выберите точки с опубликованными IP-адресами."); return; }
+        if (selected.Count == 0) { SetStatus("Select locations with published IP addresses."); return; }
         if (!block && selected.Any(s => _settings.BlockedCountries.Contains(s.Country)))
         {
-            SetStatus("Снимите отметку страны слева и нажмите «Применить».", true); return;
+            SetStatus("Deselect the country on the left and click Apply.", true); return;
         }
         foreach (var server in selected) server.FirewallKnown = false;
-        SetStatus(block ? "Блокируем выбранные локации…" : "Снимаем ручные блокировки…");
+        SetStatus(block ? "Blocking selected locations…" : "Removing manual blocks…");
         await Firewall.SetManual(selected, block); await Firewall.Sync(_servers);
-        if (selected.Any(s => s.Blocked != block)) throw new InvalidOperationException("Фаервол не подтвердил все изменения.");
-        SetStatus(block ? "Выбранные точки заблокированы. Перезапустите CS2." : "Ручные блокировки сняты. Перезапустите CS2.");
+        if (selected.Any(s => s.Blocked != block)) throw new InvalidOperationException("The firewall did not confirm all changes.");
+        SetStatus(block ? "Selected locations blocked. Restart CS2." : "Manual blocks removed. Restart CS2.");
     }
 
     private async Task ClearAll()
     {
-        if (!await Ui.MessageWindow("Снять все блокировки CS2 и отключить автоблокировку стран?", true).ShowDialog<bool>(this)) return;
+        if (!await Ui.MessageWindow("Remove all CS2 blocks and disable automatic country blocking?", true).ShowDialog<bool>(this)) return;
         var previous = _settings.BlockedCountries; _settings.BlockedCountries = new HashSet<string>();
         try { await Task.Run(_settings.Save); } catch { _settings.BlockedCountries = previous; throw; }
         _countryDraft.Clear();
         _policyPending = true; PopulateCountries();
-        SetStatus("Удаляем правила CS2…");
+        SetStatus("Removing CS2 rules…");
         foreach (var server in _servers) server.FirewallKnown = false;
         await Firewall.Clear(); await Firewall.Sync(_servers);
-        if (_servers.Any(s => s.Blocked)) throw new InvalidOperationException("Остались активные блокировки CS2.");
-        _policyPending = false; SetStatus("Все правила CS2_Block_* удалены. Автоблокировка отключена.");
+        if (_servers.Any(s => s.Blocked)) throw new InvalidOperationException("Some CS2 blocks are still active.");
+        _policyPending = false; SetStatus("All CS2_Block_* rules removed. Automatic blocking disabled.");
     }
 
     private async Task PingAll()
@@ -653,7 +653,7 @@ internal sealed partial class MainWindow : Window
         _pingButton.IsVisible = false; _stop.IsVisible = true; _stop.IsEnabled = true;
         _progress.IsIndeterminate = false; _progress.IsVisible = true; _progress.Maximum = targets.Count; _progress.Value = 0;
         foreach (var server in targets) server.PingMs = -2;
-        SetStatus("Проверяем задержку… Заблокированные точки могут не отвечать.");
+        SetStatus("Measuring latency… Blocked locations may not respond.");
         try
         {
             await Task.WhenAll(targets.Select(async server =>
@@ -666,7 +666,7 @@ internal sealed partial class MainWindow : Window
         catch (OperationCanceledException) { }
         finally { _pingCancellation = null; _stop.IsVisible = false; _pingButton.IsVisible = true; _progress.IsVisible = false; }
         _servers = _servers.OrderBy(s => s.PingMs < 0 ? int.MaxValue : s.PingMs).ToList();
-        SetStatus(cancellation.IsCancellationRequested ? "Проверка остановлена." : $"Проверка завершена · ответили {targets.Count(s => s.PingMs >= 0)} из {targets.Count}.");
+        SetStatus(cancellation.IsCancellationRequested ? "Check stopped." : $"Check complete · {targets.Count(s => s.PingMs >= 0)} of {targets.Count} responded.");
     }
 
     private static async Task<int> MeasurePing(string address, CancellationToken cancellation)
@@ -703,7 +703,7 @@ internal sealed partial class MainWindow : Window
             var grid = Ui.Grid(_columns); grid.Height = 41;
             var border = new Border { Child = grid, Classes = { "relayRow" } };
             border.Classes.Set("selected", server.Checked);
-            var pick = Ui.Checkbox(new Border(), $"Выбрать {server.Description}", server.Checked);
+            var pick = Ui.Checkbox(new Border(), $"Select {server.Description}", server.Checked);
             pick.Width = 34; pick.HorizontalAlignment = HorizontalAlignment.Center; pick.IsEnabled = server.Addresses.Count > 0;
             pick.IsCheckedChanged += (_, _) => { server.Checked = pick.IsChecked == true; border.Classes.Set("selected", server.Checked); UpdateSummary(); };
             Ui.Put(grid, pick);
@@ -722,7 +722,7 @@ internal sealed partial class MainWindow : Window
             ToolTip.SetTip(country, countryName); Ui.Put(grid, country, 2);
             var addressCount = Ui.Label(server.Addresses.Count.ToString(), 14);
             addressCount.TextAlignment = TextAlignment.Center; Ui.Put(grid, addressCount, 3);
-            var ping = Ui.Label(server.PingMs == -2 ? "-" : server.PingMs < 0 ? "Таймаут" : $"{server.PingMs} мс", 13);
+            var ping = Ui.Label(server.PingMs == -2 ? "-" : server.PingMs < 0 ? "Timeout" : $"{server.PingMs} ms", 13);
             ping.TextAlignment = TextAlignment.Center; Ui.Put(grid, ping, 4);
             Ui.Put(grid, StatusBadge(server, status), 5);
             border.DoubleTapped += async (_, e) =>
@@ -738,26 +738,26 @@ internal sealed partial class MainWindow : Window
 
     private Button CreateStatusFilter()
     {
-        var label = Ui.Label("Статус", 13, Ui.Muted);
+        var label = Ui.Label("Status", 13, Ui.Muted);
         label.TextAlignment = TextAlignment.Center;
         var content = Ui.Grid("14,*"); content.ColumnSpacing = 5;
         Ui.Put(content, Ui.Icon("adjustments-horizontal", 14, Ui.Muted)); Ui.Put(content, label, 1);
         var menu = new MenuFlyout();
         var button = new Button { Classes = { "mainAction", "filterAction" }, Content = content, Flyout = menu,
             HorizontalAlignment = HorizontalAlignment.Center };
-        AutomationProperties.SetName(button, "Фильтр по статусу");
-        ToolTip.SetTip(button, "Фильтр по статусу");
+        AutomationProperties.SetName(button, "Filter by status");
+        ToolTip.SetTip(button, "Filter by status");
         foreach (RelayStatus? status in new RelayStatus?[] { null }.Concat(Enum.GetValues<RelayStatus>().Select(value => (RelayStatus?)value)))
         {
-            string text = status == null ? "Все статусы" : StatusText(status.Value);
+            string text = status == null ? "All statuses" : StatusText(status.Value);
             var item = new MenuItem { Header = text, ToggleType = MenuItemToggleType.Radio, GroupName = "RelayStatus", IsChecked = status == null };
             item.Click += (_, _) =>
             {
                 foreach (var option in menu.Items.OfType<MenuItem>()) option.IsChecked = option == item;
                 _relayStatusFilter = status;
-                label.Text = status == null ? "Статус" : text;
+                label.Text = status == null ? "Status" : text;
                 label.Foreground = status == null ? Ui.Muted : Ui.Accent;
-                ToolTip.SetTip(button, $"Фильтр по статусу · {text}");
+                ToolTip.SetTip(button, $"Filter by status · {text}");
                 _rowScroll.Offset = default;
                 RenderRows();
             };
@@ -776,17 +776,17 @@ internal sealed partial class MainWindow : Window
 
     private static string StatusText(RelayStatus status) => status switch
     {
-        RelayStatus.Available => "Доступен",
-        RelayStatus.Blocked => "Заблокирован",
-        RelayStatus.Pending => "Ожидает блокировки",
-        RelayStatus.Unknown => "Не проверен",
-        _ => "Нет IP от Valve"
+        RelayStatus.Available => "Available",
+        RelayStatus.Blocked => "Blocked",
+        RelayStatus.Pending => "Pending block",
+        RelayStatus.Unknown => "Unchecked",
+        _ => "No Valve IPs"
     };
 
     private Control StatusBadge(ServerEntry server, RelayStatus status)
     {
         bool blocked = status == RelayStatus.Blocked;
-        string text = blocked && _settings.BlockedCountries.Contains(server.Country) ? "Авто · блок" : StatusText(status);
+        string text = blocked && _settings.BlockedCountries.Contains(server.Country) ? "Auto · blocked" : StatusText(status);
         bool unknown = status is RelayStatus.NoAddresses or RelayStatus.Unknown;
         var color = blocked ? Ui.Accent : unknown ? Ui.Muted : Ui.Text;
         var label = Ui.Label(text, 13, color); label.TextAlignment = TextAlignment.Center;
@@ -804,13 +804,13 @@ internal sealed partial class MainWindow : Window
         _updatingSelection = false;
         bool uncheckedRules = _servers.Any(s => s.Addresses.Count > 0 && !s.FirewallKnown);
         int blocked = _servers.Count(s => s.Blocked), addresses = _servers.Sum(s => s.Addresses.Count);
-        string rules = uncheckedRules ? "правила не проверены" : $"{blocked} заблокировано";
-        string summary = $"{_servers.Count} локаций · {addresses} IP · {rules}";
+        string rules = uncheckedRules ? "rules unchecked" : $"{blocked} blocked";
+        string summary = $"{_servers.Count} locations · {addresses} IP · {rules}";
         _summary.Text = _compactSummary
-            ? $"{_servers.Count} локац. · {addresses} IP · {(uncheckedRules ? "проверка правил" : $"{blocked} блок.")}" : summary;
-        string last = _settings.LastRefreshUtc?.ToLocalTime().ToString("dd.MM HH:mm") ?? "ещё не было";
-        string next = _settings.LastRefreshUtc?.Add(ServerCatalog.RefreshInterval).ToLocalTime().ToString("dd.MM HH:mm") ?? "сейчас";
-        ToolTip.SetTip(_summary, $"{summary}\nОбновлено: {last}  ·  Следующее: {next}");
+            ? $"{_servers.Count} loc. · {addresses} IP · {(uncheckedRules ? "checking rules" : $"{blocked} blocked")}" : summary;
+        string last = _settings.LastRefreshUtc?.ToLocalTime().ToString("dd.MM HH:mm") ?? "never";
+        string next = _settings.LastRefreshUtc?.Add(ServerCatalog.RefreshInterval).ToLocalTime().ToString("dd.MM HH:mm") ?? "now";
+        ToolTip.SetTip(_summary, $"{summary}\nUpdated: {last}  ·  Next: {next}");
     }
     private void SetStatus(string message, bool error = false)
     {

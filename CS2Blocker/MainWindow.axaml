@@ -278,9 +278,9 @@
                        FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-            <Button x:Name="AutoTab" Classes="mainAction nav active" AutomationProperties.Name="Автоблокировка" />
-            <Button x:Name="SettingsTab" Classes="mainAction nav" AutomationProperties.Name="Настройки" />
-            <Button x:Name="JournalTab" Classes="mainAction nav" AutomationProperties.Name="Журнал" />
+            <Button x:Name="AutoTab" Classes="mainAction nav active" AutomationProperties.Name="Auto-block" />
+            <Button x:Name="SettingsTab" Classes="mainAction nav" AutomationProperties.Name="Settings" />
+            <Button x:Name="JournalTab" Classes="mainAction nav" AutomationProperties.Name="Activity" />
           </StackPanel>
           <StackPanel x:Name="CaptionButtons" Grid.Column="2" Orientation="Horizontal" Spacing="4"
                       HorizontalAlignment="Right" VerticalAlignment="Center" />
@@ -307,14 +307,14 @@
           <Grid Classes="sideContent" RowDefinitions="Auto,38,Auto,Auto,*,Auto">
             <StackPanel Spacing="9">
               <ContentControl x:Name="SidebarTitle" HorizontalContentAlignment="Center" />
-              <TextBlock x:Name="SidebarDescription" Text="Выберите страны для автоблокировки реле Valve."
+              <TextBlock x:Name="SidebarDescription" Text="Select countries to automatically block Valve relays."
                          Foreground="{DynamicResource BlockerMuted}" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" />
             </StackPanel>
             <Border Grid.Row="1" Classes="searchField">
               <Grid ColumnDefinitions="34,*">
                 <ContentControl Classes="searchGlyph" />
-                <TextBox x:Name="CountrySearch" Grid.Column="1" Classes="searchInput" PlaceholderText="Поиск страны"
-                         AutomationProperties.Name="Поиск страны" />
+                <TextBox x:Name="CountrySearch" Grid.Column="1" Classes="searchInput" PlaceholderText="Search country"
+                         AutomationProperties.Name="Search country" />
               </Grid>
             </Border>
             <Grid x:Name="CountryActions" Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8" />
@@ -325,7 +325,7 @@
             <StackPanel x:Name="SidebarFooter" Grid.Row="5" Spacing="7">
               <Border Height="1" Background="{DynamicResource LineBrush}" Margin="0,0,0,5" />
               <ContentControl x:Name="ScheduleLabel" HorizontalContentAlignment="Center" />
-              <TextBlock Text="Работает в трее" Foreground="{DynamicResource BlockerMuted}" FontSize="13" TextAlignment="Center" />
+              <TextBlock Text="Runs in the tray" Foreground="{DynamicResource BlockerMuted}" FontSize="13" TextAlignment="Center" />
             </StackPanel>
           </Grid>
         </Border>
@@ -336,8 +336,8 @@
                     VerticalAlignment="Top">
               <Grid ColumnDefinitions="34,*">
                 <ContentControl Classes="searchGlyph" />
-                <TextBox x:Name="LocationSearch" Grid.Column="1" Classes="searchInput" PlaceholderText="Поиск локации или IP"
-                         AutomationProperties.Name="Поиск локации или IP" />
+                <TextBox x:Name="LocationSearch" Grid.Column="1" Classes="searchInput" PlaceholderText="Search location or IP"
+                         AutomationProperties.Name="Search location or IP" />
               </Grid>
             </Border>
           </Grid>
@@ -351,7 +351,7 @@
                             VerticalScrollBarVisibility="Visible">
                 <StackPanel x:Name="RelayRows" />
               </ScrollViewer>
-              <TextBlock x:Name="NoRelays" Grid.Row="1" Text="Локации не найдены" IsVisible="False" IsHitTestVisible="False"
+              <TextBlock x:Name="NoRelays" Grid.Row="1" Text="No locations found" IsVisible="False" IsHitTestVisible="False"
                          HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource BlockerMuted}" />
             </Grid>
           </Border>
@@ -364,7 +364,7 @@
               <StackPanel Grid.Column="2" Spacing="2">
                 <ContentControl x:Name="AdminBadge" />
                 <Button x:Name="RepositoryLink" Classes="mainAction repositoryLink" HorizontalAlignment="Right"
-                        AutomationProperties.Name="Открыть репозиторий Valve Blocker на GitHub">
+                        AutomationProperties.Name="Open Valve Blocker on GitHub">
                   <TextBlock Text="github.com/akzor/CS2Blocker" FontSize="11" />
                 </Button>
               </StackPanel>

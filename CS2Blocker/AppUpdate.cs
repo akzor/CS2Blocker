@@ -45,7 +45,7 @@ internal static class AppUpdate
         long size = (long?)asset?["size"] ?? 0;
         if ((string?)asset?["browser_download_url"] != url || (string?)asset?["state"] != "uploaded" ||
             digest == null || !Regex.IsMatch(digest, @"\Asha256:[a-fA-F0-9]{64}\z") || size <= 0 || size > MaximumSize)
-            throw new InvalidDataException("Релиз GitHub не содержит проверяемого CS2Blocker.exe.");
+            throw new InvalidDataException("The GitHub release has no verifiable CS2Blocker.exe.");
         return new Release(version, url, digest[7..], size);
     }
 
@@ -63,16 +63,16 @@ internal static class AppUpdate
         while (remaining > 0)
         {
             int count = await source.ReadAsync(buffer.AsMemory(0, (int)Math.Min(remaining, buffer.Length)), timeout.Token).ConfigureAwait(false);
-            if (count == 0) throw new InvalidDataException("Обновление скачалось не полностью.");
+            if (count == 0) throw new InvalidDataException("The update download is incomplete.");
             await file.WriteAsync(buffer.AsMemory(0, count), timeout.Token).ConfigureAwait(false);
             remaining -= count;
         }
         if (await source.ReadAsync(buffer.AsMemory(0, 1), timeout.Token).ConfigureAwait(false) != 0)
-            throw new InvalidDataException("Размер обновления не совпадает с данными GitHub.");
+            throw new InvalidDataException("The update size does not match GitHub metadata.");
         file.Position = 0;
         string hash = Convert.ToHexString(await SHA256.HashDataAsync(file, timeout.Token).ConfigureAwait(false));
         if (!hash.Equals(release.Digest, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("Контрольная сумма обновления не совпадает.");
+            throw new InvalidDataException("The update checksum does not match.");
     }
 
     public static void Install(string executable, string downloaded, bool startInTray)
@@ -80,7 +80,7 @@ internal static class AppUpdate
         string backup = executable + ".previous";
         foreach (string path in new[] { executable, downloaded, backup })
             if (File.Exists(path) && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
-                throw new IOException("Обновление через ссылку на файл не поддерживается.");
+                throw new IOException("Updating through a file link is not supported.");
 
         bool replaced = false;
         try
@@ -91,7 +91,7 @@ internal static class AppUpdate
             start.ArgumentList.Add("--restart-from");
             start.ArgumentList.Add(Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (startInTray) start.ArgumentList.Add("--tray");
-            using var child = Process.Start(start) ?? throw new InvalidOperationException("Не удалось запустить обновлённую версию.");
+            using var child = Process.Start(start) ?? throw new InvalidOperationException("Cannot launch the updated version.");
         }
         catch
         {
