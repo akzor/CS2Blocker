@@ -2,14 +2,23 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="using:CS2Blocker"
         x:Class="CS2Blocker.SettingsWindow" x:DataType="local:SettingsViewModel" x:CompileBindings="True"
-        Title="Valve Blocker Settings" Width="520" Height="425" CanResize="False"
-        WindowDecorations="None" Background="{DynamicResource BlockerBackground}"
+        Title="Valve Blocker Settings" Width="520" Height="450" CanResize="False"
+        WindowDecorations="None" TransparencyLevelHint="Transparent" Background="Transparent"
         WindowStartupLocation="CenterOwner" FontFamily="{DynamicResource BlockerFont}" UseLayoutRounding="True">
+  <Window.Resources>
+    <SolidColorBrush x:Key="BlockerBackground">#101213</SolidColorBrush>
+    <SolidColorBrush x:Key="BlockerSurface">#161819</SolidColorBrush>
+    <SolidColorBrush x:Key="BlockerBorder">#292D30</SolidColorBrush>
+    <SolidColorBrush x:Key="BlockerHover">#222628</SolidColorBrush>
+    <SolidColorBrush x:Key="BlockerSelection">#332B1E</SolidColorBrush>
+  </Window.Resources>
   <Window.Styles>
     <Style Selector="Border.settingsCard">
       <Setter Property="Background" Value="{DynamicResource BlockerSurface}" />
-      <Setter Property="CornerRadius" Value="9" />
-      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="CornerRadius" Value="13" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BlockerBorder}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="15" />
     </Style>
     <Style Selector="TextBlock.settingsTitle">
       <Setter Property="Foreground" Value="{DynamicResource BlockerText}" />
@@ -22,17 +31,44 @@
       <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
     <Style Selector="Button.settingsAction">
-      <Setter Property="Padding" Value="12,8" />
-      <Setter Property="MinHeight" Value="34" />
-      <Setter Property="Background" Value="{DynamicResource BlockerHover}" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Height" Value="38" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Background" Value="{DynamicResource BlockerBackground}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BlockerBorder}" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Foreground" Value="{DynamicResource BlockerText}" />
-      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="CornerRadius" Value="9" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border x:Name="ActionFrame" Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}">
+            <ContentPresenter Content="{TemplateBinding Content}" Padding="{TemplateBinding Padding}"
+                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Button.settingsAction:pointerover /template/ Border#ActionFrame">
+      <Setter Property="Background" Value="{DynamicResource BlockerHover}" />
+    </Style>
+    <Style Selector="Button.settingsAction:pressed /template/ Border#ActionFrame">
+      <Setter Property="Background" Value="{DynamicResource BlockerSelection}" />
+    </Style>
+    <Style Selector="Button.settingsAction:focus-visible /template/ Border#ActionFrame">
+      <Setter Property="BorderBrush" Value="{DynamicResource BlockerAccent}" />
+    </Style>
+    <Style Selector="Button.settingsAction:disabled">
+      <Setter Property="Opacity" Value="0.48" />
     </Style>
     <Style Selector="Border.adminBadge">
       <Setter Property="Background" Value="{DynamicResource BlockerHover}" />
-      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BlockerBorder}" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Padding" Value="10,5" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -44,17 +80,18 @@
     </Style>
   </Window.Styles>
   <Border Background="{DynamicResource BlockerBackground}" BorderBrush="{DynamicResource BlockerBorder}"
-          BorderThickness="1" ClipToBounds="True">
-    <Grid RowDefinitions="44,*">
-      <Border x:Name="TitleBar" Background="{DynamicResource BlockerSurface}">
+          BorderThickness="1" CornerRadius="15" ClipToBounds="True">
+    <Grid RowDefinitions="58,*">
+      <Border x:Name="TitleBar"
+              BorderBrush="{DynamicResource BlockerBorder}" BorderThickness="0,0,0,1">
         <Grid ColumnDefinitions="30,*,30" Margin="10,0">
-          <TextBlock Grid.Column="1" Text="Settings" Classes="settingsTitle"
+          <TextBlock Grid.Column="1" Text="Settings" Classes="settingsTitle" FontSize="19" FontWeight="SemiBold"
                      HorizontalAlignment="Center" VerticalAlignment="Center" />
           <Button x:Name="SettingsClose" Grid.Column="2" Command="{Binding CloseWindow}" />
         </Grid>
       </Border>
       <ScrollViewer x:Name="SettingsScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
-                    VerticalScrollBarVisibility="Auto" AllowAutoHide="False">
+                    VerticalScrollBarVisibility="Hidden">
         <StackPanel Spacing="16" Margin="16">
           <Border Classes="settingsCard">
             <StackPanel Spacing="10">

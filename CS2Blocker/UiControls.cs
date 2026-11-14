@@ -1,4 +1,6 @@
 using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -132,18 +134,24 @@ internal static class Ui
         button.Template = new FuncControlTemplate<Button>((control, _) =>
         {
             var presenter = new ContentPresenter { Content = control.Content, Padding = control.Padding, HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center };
-            var border = new Border { CornerRadius = control.CornerRadius, BorderThickness = new Thickness(1), Child = presenter };
+            var border = new Border { CornerRadius = control.CornerRadius, BorderThickness = new Thickness(flat ? 0 : 1), Child = presenter };
+            if (flat)
+                border.Transitions = new Transitions
+                {
+                    new DoubleTransition { Property = Visual.OpacityProperty, Duration = TimeSpan.FromMilliseconds(120) }
+                };
             void Update()
             {
-                border.Background = primary && control.IsEnabled ? Accent : primary ? Selection
-                    : control.IsPointerOver ? danger ? Brush("#452325") : Hover : flat ? Brushes.Transparent : Background;
+                border.Background = flat ? Brushes.Transparent : primary && control.IsEnabled ? Accent : primary ? Selection
+                    : control.IsPointerOver ? danger ? Brush("#452325") : Hover : Background;
                 border.BorderBrush = control.IsFocused ? Accent : flat ? Brushes.Transparent : primary ? Accent : Border;
-                border.Opacity = control.IsEnabled ? 1 : .45;
+                border.Opacity = !control.IsEnabled ? .45 : !flat ? 1 : control.IsPressed ? .5
+                    : control.IsPointerOver || control.IsFocused ? 1 : .65;
                 if (primaryLabel != null) primaryLabel.Foreground = control.IsEnabled ? Background : Text;
             }
             control.PropertyChanged += (_, e) =>
             {
-                if (e.Property == InputElement.IsPointerOverProperty || e.Property == InputElement.IsFocusedProperty || e.Property == InputElement.IsEnabledProperty) Update();
+                if (e.Property == InputElement.IsPointerOverProperty || e.Property == InputElement.IsFocusedProperty || e.Property == InputElement.IsEnabledProperty || e.Property == Avalonia.Controls.Button.IsPressedProperty) Update();
                 if (e.Property == ContentControl.ContentProperty) presenter.Content = control.Content;
             };
             Update(); return border;
@@ -163,6 +171,7 @@ internal static class Ui
         button.CornerRadius = new CornerRadius(8); button.Padding = new Thickness(0);
         button.VerticalAlignment = VerticalAlignment.Center;
         button.Cursor = new Cursor(StandardCursorType.Hand);
+        button.FocusAdorner = null;
         ApplyButtonTemplate(button, null, danger, flat: true);
         AutomationProperties.SetName(button, label);
         ToolTip.SetTip(button, label);
@@ -195,26 +204,118 @@ internal static class Ui
         });
         return checkbox;
     }
+    public static void AnimateWindowOpening(Window window)
+    {
+        var content = (Control)window.Content!;
+        content.Opacity = 0;
+        content.Transitions = new Transitions
+        {
+            new DoubleTransition { Property = Visual.OpacityProperty, Duration = TimeSpan.FromMilliseconds(420), Easing = new CubicEaseInOut() }
+        };
+        window.Opened += (_, _) => window.RequestAnimationFrame(_ =>
+            window.RequestAnimationFrame(_ => content.Opacity = 1));
+    }
+
+    internal sealed class AnimatedFlyout : Flyout
+    {
+        protected override Control CreatePresenter() => AnimateFlyout(this, base.CreatePresenter());
+    }
+
+    internal sealed class AnimatedMenuFlyout : MenuFlyout
+    {
+        protected override Control CreatePresenter() => AnimateFlyout(this, base.CreatePresenter());
+    }
+
+    private static Control AnimateFlyout(PopupFlyoutBase flyout, Control presenter)
+    {
+        var offset = new TranslateTransform(0, 8)
+        {
+            Transitions = new Transitions
+            {
+                new DoubleTransition { Property = TranslateTransform.YProperty, Duration = TimeSpan.FromMilliseconds(240), Easing = new CubicEaseInOut() }
+            }
+        };
+        presenter.RenderTransform = offset;
+        presenter.Opacity = 0;
+        presenter.Transitions = new Transitions
+        {
+            new DoubleTransition { Property = Visual.OpacityProperty, Duration = TimeSpan.FromMilliseconds(240), Easing = new CubicEaseInOut() }
+        };
+        bool closing = false, finished = false;
+        flyout.Opened += (_, _) =>
+        {
+            closing = finished = false;
+            presenter.IsHitTestVisible = true;
+            presenter.Opacity = 1; offset.Y = 0;
+        };
+        flyout.Closing += async (_, e) =>
+        {
+            if (finished) return;
+            e.Cancel = true;
+            if (closing) return;
+            closing = true;
+            presenter.IsHitTestVisible = false;
+            presenter.Opacity = 0; offset.Y = 8;
+            await Task.Delay(240);
+            finished = true;
+            flyout.Hide();
+        };
+        return presenter;
+    }
+
+    public static void AnimateDialog(Window window, Func<bool>? result = null)
+    {
+        var content = (Control)window.Content!;
+        var offset = new TranslateTransform(0, 8)
+        {
+            Transitions = new Transitions
+            {
+                new DoubleTransition { Property = TranslateTransform.YProperty, Duration = TimeSpan.FromMilliseconds(240), Easing = new CubicEaseInOut() }
+            }
+        };
+        content.RenderTransform = offset;
+        content.Opacity = 0;
+        content.Transitions = new Transitions
+        {
+            new DoubleTransition { Property = Visual.OpacityProperty, Duration = TimeSpan.FromMilliseconds(240), Easing = new CubicEaseInOut() }
+        };
+        window.Opened += (_, _) => { content.Opacity = 1; offset.Y = 0; };
+        bool closing = false, finished = false;
+        window.Closing += async (_, e) =>
+        {
+            if (finished || e.CloseReason is WindowCloseReason.OSShutdown or WindowCloseReason.ApplicationShutdown) return;
+            e.Cancel = true;
+            if (closing) return;
+            closing = true;
+            content.IsHitTestVisible = false;
+            content.Opacity = 0; offset.Y = 8;
+            await Task.Delay(240);
+            finished = true;
+            window.Close(result?.Invoke() ?? false);
+        };
+    }
     public static Window MessageWindow(string message, bool confirm = false)
     {
         var window = new Window
         {
-            Title = "Valve Blocker", Width = 500, Height = 240, CanResize = false,
+            Title = "Valve Blocker", Width = 440, Height = 190, CanResize = false,
             WindowDecorations = WindowDecorations.None, Background = Brushes.Transparent,
             TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent },
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
-        var body = Grid("*", "*,44"); body.Margin = new Thickness(24);
+        var body = Grid("*", "*,38"); body.Margin = new Thickness(20);
         var text = Label(message); text.TextWrapping = TextWrapping.Wrap;
         Put(body, new ScrollViewer { Content = text, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Margin = new Thickness(0, 0, 0, 18) });
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Right };
+        bool accepted = false;
         if (confirm)
         {
-            var cancel = Button("Cancel", "x"); cancel.Click += (_, _) => window.Close(false); actions.Children.Add(cancel);
+            var cancel = Button("Cancel", "x"); cancel.Click += (_, _) => window.Close(); actions.Children.Add(cancel);
         }
         var ok = Button(confirm ? "Clear all" : "OK", confirm ? "trash" : "check", primary: !confirm, danger: confirm);
-        ok.Click += (_, _) => window.Close(true); actions.Children.Add(ok);
+        ok.Click += (_, _) => { accepted = true; window.Close(); }; actions.Children.Add(ok);
         Put(body, actions, 0, 1); window.Content = Round(body, Surface, 14);
+        AnimateDialog(window, () => accepted);
         return window;
     }
     public static void Dispose() { foreach (var bitmap in Images.Values) bitmap.Dispose(); Images.Clear(); }

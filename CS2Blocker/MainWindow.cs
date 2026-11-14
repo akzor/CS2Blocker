@@ -33,6 +33,8 @@ internal sealed partial class MainWindow : Window
     private readonly TextBlock _summary, _status, _noRelays;
     private readonly Border _statusDot;
     private readonly ContentControl _applyHost;
+    private readonly Button _sidebarTitle;
+    private readonly Action _updateSidebar;
     private readonly TextBlock _history = Ui.Label("", 13);
     private readonly Queue<string> _events = new();
     private readonly ProgressBar _progress;
@@ -65,6 +67,7 @@ internal sealed partial class MainWindow : Window
     public MainWindow()
     {
         AvaloniaXamlLoader.Load(this);
+        Ui.AnimateWindowOpening(this);
         using (var stream = Ui.Asset("valve-blocker.ico")) Icon = new WindowIcon(stream);
         T Part<T>(string name) where T : Control => this.FindControl<T>(name)!;
 
@@ -94,7 +97,7 @@ internal sealed partial class MainWindow : Window
         }
         settings.Click += async (_, _) => await OpenSettings();
         _history.TextWrapping = TextWrapping.Wrap; _history.MaxWidth = 420;
-        journal.Flyout = new Flyout { Content = new ScrollViewer { Content = _history, MaxHeight = 380 } };
+        journal.Flyout = new Ui.AnimatedFlyout { Content = new ScrollViewer { Content = _history, MaxHeight = 380 } };
         var captions = Part<StackPanel>("CaptionButtons");
         captions.Children.Add(Ui.CaptionButton("minus", "Minimize to tray", () => WindowState = WindowState.Minimized));
         var maximize = Ui.CaptionButton("square", "Maximize / restore", ToggleMaximize);
@@ -110,7 +113,42 @@ internal sealed partial class MainWindow : Window
         var sideHeading = Ui.Label("Auto-block", bold: true);
         sideHeading.ClearValue(TextBlock.FontSizeProperty);
         sideHeading.Classes.Add("sideHeading");
-        Part<ContentControl>("SidebarTitle").Content = ButtonContent(sideHeading, Ui.Icon("adjustments-horizontal", 21));
+        var sidebarTitle = _sidebarTitle = Part<Button>("SidebarTitle");
+        sidebarTitle.Content = sideHeading;
+        var sidebar = Part<Border>("CountrySidebar");
+        var mainBody = Part<Grid>("MainBody");
+        var sidebarDetails = Part<StackPanel>("SidebarDetails");
+        var sidebarFooter = Part<StackPanel>("SidebarFooter");
+        void ResizeSidebar() => sidebar.Width = _settings.CountrySidebarCollapsed ? 200 : Math.Clamp(mainBody.Bounds.Width * 0.24, 200, 290);
+        _updateSidebar = () =>
+        {
+            bool sidebarCollapsed = _settings.CountrySidebarCollapsed;
+            string hint = sidebarCollapsed ? "Expand auto-block controls" : "Collapse to country list";
+            ToolTip.SetTip(sidebarTitle, hint);
+            AutomationProperties.SetName(sidebarTitle, hint);
+            sideHeading.Text = sidebarCollapsed ? "Countries" : "Auto-block";
+            sidebarDetails.MaxHeight = sidebarCollapsed ? 0 : 170;
+            sidebarFooter.MaxHeight = sidebarCollapsed ? 0 : 120;
+            sidebarDetails.Opacity = sidebarFooter.Opacity = sidebarCollapsed ? 0 : 1;
+            sidebarDetails.IsEnabled = sidebarFooter.IsEnabled = !sidebarCollapsed;
+            if (sidebarCollapsed) _countrySearch.Text = "";
+            ResizeSidebar();
+        };
+        _updateSidebar();
+        mainBody.SizeChanged += (_, _) => ResizeSidebar();
+        sidebarTitle.Click += (_, _) =>
+        {
+            if (_busy) return;
+            _settings.CountrySidebarCollapsed = !_settings.CountrySidebarCollapsed;
+            try { _settings.Save(); }
+            catch (Exception ex)
+            {
+                _settings.CountrySidebarCollapsed = !_settings.CountrySidebarCollapsed;
+                SetStatus("Cannot save sidebar state. " + ex.Message, true);
+                return;
+            }
+            _updateSidebar();
+        };
         const string schedule = "Checks every 12 hours";
         var scheduleLabel = Ui.Label(schedule, 13);
         var scheduleGroup = ButtonContent(scheduleLabel, Ui.Icon("clock", 19));
@@ -324,6 +362,7 @@ internal sealed partial class MainWindow : Window
             ExitApplication(); return;
         }
         finally { _busy = false; SetEnabled(true); }
+        _updateSidebar();
         _countryDraft.UnionWith(_settings.BlockedCountries);
         PopulateCountries(); RenderRows();
         if (ServerCatalog.IsDue(_settings.LastRefreshUtc, DateTimeOffset.UtcNow) || _servers.Count == 0) await Operate(RefreshServers);
@@ -421,7 +460,7 @@ internal sealed partial class MainWindow : Window
     {
         if (_settingsWindow != null) { _settingsWindow.Activate(); return; }
         var dialog = new SettingsWindow();
-        if (_isAdmin) dialog.Height = 370;
+        if (_isAdmin) dialog.Height = 395;
         dialog.DataContext = new SettingsViewModel(_isAdmin, dialog.Close, RestartAsAdmin, CheckForUpdate,
             _settings.CloseToTray, SetCloseToTray);
         if ((Screens.ScreenFromWindow(this) ?? Screens.Primary) is { } screen)
@@ -510,6 +549,7 @@ internal sealed partial class MainWindow : Window
 
     private void SetEnabled(bool enabled)
     {
+        _sidebarTitle.IsEnabled = enabled;
         if (_adminButton != null) _adminButton.IsEnabled = enabled;
         foreach (Control control in _actions.Children)
             if (control != _stop) control.IsEnabled = enabled && (!(control.Tag is true) || _isAdmin);
@@ -566,6 +606,7 @@ internal sealed partial class MainWindow : Window
                 !code.Contains(query, StringComparison.OrdinalIgnoreCase)) continue;
             var content = Ui.Grid("28,*,24"); content.ColumnSpacing = 8;
             var name = Ui.Label(countryName, 14); name.TextAlignment = TextAlignment.Center;
+            name.TextTrimming = TextTrimming.CharacterEllipsis;
             Ui.Put(content, Ui.Flag(code)); Ui.Put(content, name, 1);
             var count = Ui.Label(_servers.Count(s => s.Country == code).ToString(), 13, Ui.Muted);
             count.TextAlignment = TextAlignment.Center; Ui.Put(content, count, 2);
@@ -708,9 +749,8 @@ internal sealed partial class MainWindow : Window
             pick.IsCheckedChanged += (_, _) => { server.Checked = pick.IsChecked == true; border.Classes.Set("selected", server.Checked); UpdateSummary(); };
             Ui.Put(grid, pick);
             string location = server.Country.Length == 0 ? server.Description : System.Text.RegularExpressions.Regex.Replace(server.Description, @"\s*\([^()]*\)\s*$", "");
-            var code = Ui.Label(server.Code, 12, Ui.Muted); code.TextAlignment = TextAlignment.Center;
             var name = Ui.Label(location, 15, bold: true); name.TextAlignment = TextAlignment.Center;
-            var locationCell = Ui.Stack(1, name, code);
+            var locationCell = Ui.Stack(1, name);
             locationCell.Margin = new Thickness(9, 0); locationCell.VerticalAlignment = VerticalAlignment.Center;
             ToolTip.SetTip(locationCell, server.Description + "\n" + string.Join("\n", server.Addresses)); Ui.Put(grid, locationCell, 1);
             var country = Ui.Grid("28,*"); country.ColumnSpacing = 7; country.Margin = new Thickness(4, 0);
@@ -742,7 +782,7 @@ internal sealed partial class MainWindow : Window
         label.TextAlignment = TextAlignment.Center;
         var content = Ui.Grid("14,*"); content.ColumnSpacing = 5;
         Ui.Put(content, Ui.Icon("adjustments-horizontal", 14, Ui.Muted)); Ui.Put(content, label, 1);
-        var menu = new MenuFlyout();
+        var menu = new Ui.AnimatedMenuFlyout();
         var button = new Button { Classes = { "mainAction", "filterAction" }, Content = content, Flyout = menu,
             HorizontalAlignment = HorizontalAlignment.Center };
         AutomationProperties.SetName(button, "Filter by status");

@@ -298,31 +298,50 @@
                        Foreground="{DynamicResource BlockerAccent}" VerticalAlignment="Center" />
         </Grid>
       </Border>
-      <Grid Grid.Row="2" Classes="mainBody">
+      <Grid x:Name="MainBody" Grid.Row="2" Classes="mainBody">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="24*" MinWidth="200" MaxWidth="290" />
-          <ColumnDefinition Width="76*" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
-        <Border Classes="mainCard">
-          <Grid Classes="sideContent" RowDefinitions="Auto,38,Auto,Auto,*,Auto">
-            <StackPanel Spacing="9">
-              <ContentControl x:Name="SidebarTitle" HorizontalContentAlignment="Center" />
+        <Border x:Name="CountrySidebar" Classes="mainCard" Width="290">
+          <Border.Transitions>
+            <Transitions>
+              <DoubleTransition Property="Width" Duration="0:0:0.24" Easing="CubicEaseInOut" />
+            </Transitions>
+          </Border.Transitions>
+          <Grid Classes="sideContent" RowDefinitions="Auto,Auto,Auto,*,Auto">
+            <Button x:Name="SidebarTitle" Classes="mainAction" Background="Transparent" BorderThickness="0"
+                    Padding="0" HorizontalAlignment="Stretch" />
+            <StackPanel x:Name="SidebarDetails" Grid.Row="1" Spacing="10" ClipToBounds="True" MaxHeight="170">
+              <StackPanel.Transitions>
+                <Transitions>
+                  <DoubleTransition Property="MaxHeight" Duration="0:0:0.24" Easing="CubicEaseInOut" />
+                  <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+                </Transitions>
+              </StackPanel.Transitions>
               <TextBlock x:Name="SidebarDescription" Text="Select countries to automatically block Valve relays."
                          Foreground="{DynamicResource BlockerMuted}" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" />
+              <Border Classes="searchField">
+                <Grid ColumnDefinitions="34,*">
+                  <ContentControl Classes="searchGlyph" />
+                  <TextBox x:Name="CountrySearch" Grid.Column="1" Classes="searchInput" PlaceholderText="Search country"
+                           AutomationProperties.Name="Search country" />
+                </Grid>
+              </Border>
+              <Grid x:Name="CountryActions" ColumnDefinitions="*,*" ColumnSpacing="8" />
             </StackPanel>
-            <Border Grid.Row="1" Classes="searchField">
-              <Grid ColumnDefinitions="34,*">
-                <ContentControl Classes="searchGlyph" />
-                <TextBox x:Name="CountrySearch" Grid.Column="1" Classes="searchInput" PlaceholderText="Search country"
-                         AutomationProperties.Name="Search country" />
-              </Grid>
-            </Border>
-            <Grid x:Name="CountryActions" Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8" />
-            <ContentControl x:Name="ApplyHost" Grid.Row="3" HorizontalContentAlignment="Stretch" IsVisible="False" />
-            <ScrollViewer x:Name="CountryScroll" Grid.Row="4" HorizontalScrollBarVisibility="Disabled">
+            <ContentControl x:Name="ApplyHost" Grid.Row="2" HorizontalContentAlignment="Stretch" IsVisible="False" />
+            <ScrollViewer x:Name="CountryScroll" Grid.Row="3" HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Hidden">
               <StackPanel x:Name="CountryRows" Spacing="1" />
             </ScrollViewer>
-            <StackPanel x:Name="SidebarFooter" Grid.Row="5" Spacing="7">
+            <StackPanel x:Name="SidebarFooter" Grid.Row="4" Spacing="7" ClipToBounds="True" MaxHeight="120">
+              <StackPanel.Transitions>
+                <Transitions>
+                  <DoubleTransition Property="MaxHeight" Duration="0:0:0.24" Easing="CubicEaseInOut" />
+                  <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+                </Transitions>
+              </StackPanel.Transitions>
               <Border Height="1" Background="{DynamicResource LineBrush}" Margin="0,0,0,5" />
               <ContentControl x:Name="ScheduleLabel" HorizontalContentAlignment="Center" />
               <TextBlock Text="Runs in the tray" Foreground="{DynamicResource BlockerMuted}" FontSize="13" TextAlignment="Center" />
